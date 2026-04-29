@@ -18,7 +18,7 @@ export const Header = () => {
 
             <div className="text-center md:text-left space-y-2">
                 <h1 className="text-xl md:text-2xl font-bold tracking-tight uppercase">
-                    DNYANSAGAR
+                    DNYANSAGAR Classes
                 </h1>
 
                 <div className="flex flex-col gap-1 opacity-90">
