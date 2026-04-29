@@ -330,7 +330,7 @@ export default function TeacherUpdatePage() {
         </div>
 
         <p className="mt-6 text-slate-600 text-xs text-center">
-          © DNYANSAGAR· All rights reserved
+          © DNYANSAGAR CLASSESS · All rights reserved
         </p>
       </div>
     </div>

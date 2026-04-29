@@ -311,7 +311,7 @@ export function InvoicesContent() {
       <div class="container">
         <div class="header">
           <div>
-            <h2> DNYANSAGAR</h2>
+            <h2> DNYANSAGAR CLASSESS</h2>
             <p>Chapekar Chowk, Chinchwad, Pune</p>
             <p>GSTIN: 27AAUCM5976C1ZV</p>
           </div>
@@ -357,7 +357,7 @@ export function InvoicesContent() {
           </div>
           <div class="box">
             <h4>BANK DETAILS</h4>
-            <p><b>Account Name:</b> DNYANSAGAR</p>
+            <p><b>Account Name:</b> DNYANSAGAR CLASSESS</p>
             <p><b>Bank:</b> HDFC Bank</p>
             <p><b>Account No:</b> 123456789012</p>
             <p><b>IFSC:</b> HDFC0001234</p>
@@ -372,7 +372,7 @@ export function InvoicesContent() {
         </div>
         <div class="footer">
           <p>AUTHORISED SIGNATORY</p>
-          <p><b>DNYANSAGAR</b></p>
+          <p><b>DNYANSAGAR CLASSESS</b></p>
         </div>
       </div>
     </body>
@@ -696,7 +696,7 @@ export function InvoicesContent() {
             return (
               <div className="space-y-3">
                 <div className="text-center pb-4 border-b">
-                  <h3 className="text-lg font-bold text-blue-600">DNYANSAGAR</h3>
+                  <h3 className="text-lg font-bold text-blue-600">DNYANSAGAR CLASSESS</h3>
                   <p className="text-muted-foreground">Invoice #INV{String(selected.id).padStart(3, "0")}</p>
                 </div>
                 {([

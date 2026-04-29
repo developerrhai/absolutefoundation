@@ -191,7 +191,7 @@ export default function InquiryFormPage() {
               Our team will call you at <span className="text-gray-600 font-medium">{form.studentContact}</span>  within 24 hours..
             </p>
             <div className="bg-blue-50 rounded-2xl p-4 text-sm text-blue-700 font-medium">
-              DNYANSAGAR
+              DNYANSAGAR CLASSESS
             </div>
             <p className="text-amber-400 text-sm pt-1">Believe to Proceed, Pursue with Finesse</p>
 
@@ -202,7 +202,7 @@ export default function InquiryFormPage() {
   }
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-screen bg-white relative overflow-hidden">
 
       {/* Background decoration */}
       
@@ -519,7 +519,7 @@ export default function InquiryFormPage() {
 
         {/* Footer */}
         <p className="mt-8 text-slate-600 text-xs text-center">
-          @ DNYANSAGAR · All rights reserved
+          @ DNYANSAGAR CLASSESS · All rights reserved
         </p>
       </div>
     </div>

@@ -7,7 +7,7 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'Institute CRM Admin - DNYANSAGAR',
+  title: 'Institute CRM Admin - DNYANSAGAR CLASSESS',
   description: 'Comprehensive CRM dashboard for managing students, teachers, inquiries, appointments, and finances',
   generator: 'v0.app',
   icons: {
