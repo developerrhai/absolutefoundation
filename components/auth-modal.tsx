@@ -42,14 +42,14 @@ export function AuthModal({
 
     try {
       const endpoint =
-        mode === "login" ? "/api/auth/login" : "/api/auth/signup"
+        mode === "login" ? "/auth/login" : "/auth/signup"
 
       const body =
         mode === "login"
           ? { email: formData.email, password: formData.password }
           : formData
 
-      const response = await fetch(endpoint, {
+      const response = await fetch(process.env.NEXT_PUBLIC_API_URL + endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -86,7 +86,7 @@ export function AuthModal({
           const selectedRole = String(formData.role || "teacher").toLowerCase()
 
           try {
-            const loginResponse = await fetch("/api/auth/login", {
+            const loginResponse = await fetch(process.env.NEXT_PUBLIC_API_URL + "/auth/login", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({

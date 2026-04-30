@@ -38,7 +38,7 @@ const menuItems: { id: SectionType; label: string; icon: React.ReactNode }[] = [
   { id: "students",     label: "Students",      icon: <GraduationCap className="h-5 w-5" /> },
   { id: "teachers",     label: "Teachers",      icon: <Users className="h-5 w-5" /> },
   { id: "invoices",     label: "Invoices",      icon: <Receipt className="h-5 w-5" /> },
-  { id: "inquiry",      label: "New Inquiry",   icon: <ClipboardList className="h-5 w-5" /> },
+  // { id: "inquiry",      label: "New Inquiry",   icon: <ClipboardList className="h-5 w-5" /> },
   { id: "appointments", label: "Appointments",  icon: <Calendar className="h-5 w-5" /> },
   { id: "finance",      label: "Finance",       icon: <Wallet className="h-5 w-5" /> },
 ]

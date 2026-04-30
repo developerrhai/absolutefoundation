@@ -312,7 +312,7 @@ export function InvoicesContent() {
         <div class="header">
           <div>
             <h2> DNYANSAGAR CLASSESS</h2>
-            <p>Chapekar Chowk, Chinchwad, Pune</p>
+            <p>201/A, New Excelsior Building Opp. Crown Hotel, KHADKI Pune - 411003</p>
             <p>GSTIN: 27AAUCM5976C1ZV</p>
           </div>
           <div class="title">INSTITUTE BILL</div>
@@ -352,8 +352,8 @@ export function InvoicesContent() {
         <div class="flex">
           <div class="box">
             <h4>PAYMENT QR CODE</h4>
-            <p>UPI: 8261050815@ybl</p>
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=upi://pay?pa=8261050815@ybl&pn=MeritHome&am=${inv.amount}" />
+            <p>UPI: 8459693282@ybl</p>
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=upi://pay?pa=8459693282@ybl&pn=MeritHome&am=${inv.amount}" />
           </div>
           <div class="box">
             <h4>BANK DETAILS</h4>

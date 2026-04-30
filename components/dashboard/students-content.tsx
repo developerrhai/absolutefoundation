@@ -15,7 +15,7 @@ import * as XLSX from "xlsx"
 
 interface Student {
   id: number; name: string; phone: string; father_name: string; father_phone: string
-  board: string; standard: string; course: string; location: string; fee: number; paid_fee: number
+  standard: string; course: string; admission_year: string; fee: number; paid_fee: number
 }
 
 // Fee status badge helper
@@ -173,10 +173,10 @@ export function StudentsContent() {
       "Phone",
       "Father Name",
       "Father Phone",
-      "Board",
+      // "Board",
       "Standard",
       "Course",
-      "Location",
+      "Admission Year",
       "Total Fee",
       "Paid Fee",
       "Balance",
@@ -195,10 +195,10 @@ export function StudentsContent() {
         s.phone || "",
         s.father_name || "",
         s.father_phone || "",
-        s.board || "",
+        // s.board || "",
         s.standard || "",
         s.course || "",
-        s.location || "",
+        s.admission_year || "",
         totalFee,
         paidFee,
         balance,
@@ -272,10 +272,10 @@ export function StudentsContent() {
             phone: String(pickValue(row, ["phone", "student_phone", "mobile", "contact"])).trim(),
             father_name: String(pickValue(row, ["father_name", "parent_name", "guardian_name"])).trim(),
             father_phone: String(pickValue(row, ["father_phone", "parent_phone", "guardian_phone"])).trim(),
-            board: String(pickValue(row, ["board"])).trim(),
+            // board: String(pickValue(row, ["board"])).trim(),
             standard: String(pickValue(row, ["standard", "std", "class"])).trim(),
             course: String(pickValue(row, ["course", "batch"])).trim(),
-            location: String(pickValue(row, ["location", "branch"])).trim(),
+            admission_year: String(pickValue(row, ["admission_year", "year"])).trim(),
             institute: String(pickValue(row, ["institute", "school", "college"])).trim(),
             fee: Number(pickValue(row, ["fee", "total_fee"])) || 0,
             paid_fee: Number(pickValue(row, ["paid_fee", "paid", "paidamount"])) || 0,
@@ -333,7 +333,7 @@ export function StudentsContent() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={filterBoard} onValueChange={setFilterBoard}>
+            {/* <Select value={filterBoard} onValueChange={setFilterBoard}>
               <SelectTrigger><SelectValue placeholder="All Boards" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Boards</SelectItem>
@@ -345,8 +345,8 @@ export function StudentsContent() {
                 <SelectItem value="IGCSE">IGCSE</SelectItem>
                 <SelectItem value="Other">Other</SelectItem>
               </SelectContent>
-            </Select>
-            <Select value={filterLocation} onValueChange={setFilterLocation}>
+            </Select> */}
+            {/* <Select value={filterLocation} onValueChange={setFilterLocation}>
               <SelectTrigger><SelectValue placeholder="All Locations" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Locations</SelectItem>
@@ -354,7 +354,7 @@ export function StudentsContent() {
                 <SelectItem value="Wakad">Wakad</SelectItem>
                 <SelectItem value="Thergaon">Thergaon</SelectItem>
               </SelectContent>
-            </Select>
+            </Select> */}
           </div>
           <div className="flex justify-end mb-4">
             <div className="flex items-center gap-2">
@@ -388,9 +388,10 @@ export function StudentsContent() {
                     <TableHead className="text-white font-semibold">Name</TableHead>
                     <TableHead className="text-white font-semibold hidden sm:table-cell">Phone</TableHead>
                     <TableHead className="text-white font-semibold hidden md:table-cell">Father Name</TableHead>
-                    <TableHead className="text-white font-semibold hidden lg:table-cell">Board</TableHead>
+                    {/* <TableHead className="text-white font-semibold hidden lg:table-cell">Board</TableHead> */}
                     <TableHead className="text-white font-semibold">Std</TableHead>
-                    <TableHead className="text-white font-semibold hidden md:table-cell">Location</TableHead>
+                    <TableHead className="text-white font-semibold hidden md:table-cell">Admission Year</TableHead>
+                    <TableHead className="text-white font-semibold hidden md:table-cell">Course</TableHead>
                     {/* ── NEW columns ── */}
                     <TableHead className="text-white font-semibold hidden lg:table-cell">Total Fee</TableHead>
                     <TableHead className="text-white font-semibold hidden lg:table-cell">Paid</TableHead>
@@ -412,10 +413,10 @@ export function StudentsContent() {
                         <TableCell className="font-medium">{s.name}</TableCell>
                         <TableCell className="hidden sm:table-cell">{s.phone}</TableCell>
                         <TableCell className="hidden md:table-cell">{s.father_name}</TableCell>
-                        <TableCell className="hidden lg:table-cell">{s.board}</TableCell>
+                        {/* <TableCell className="hidden lg:table-cell">{s.board}</TableCell> */}
                         <TableCell>{s.standard}</TableCell>
-                        <TableCell className="hidden md:table-cell">{s.location}</TableCell>
-
+                        <TableCell className="hidden md:table-cell">{s.admission_year}</TableCell>
+                        <TableCell className="hidden md:table-cell">{s.course}</TableCell>
                         {/* ── Fee columns ── */}
                         <TableCell className="hidden lg:table-cell font-medium">
                           ₹{Number(s.fee).toLocaleString()}
@@ -480,8 +481,8 @@ export function StudentsContent() {
                 { icon: Phone,    label: "Phone",            value: selected.phone },
                 { icon: User,     label: "Father Name",      value: selected.father_name },
                 { icon: Phone,    label: "Father Phone",     value: selected.father_phone },
-                { icon: BookOpen, label: "Board / Standard", value: `${selected.board} – ${selected.standard}th` },
-                { icon: MapPin,   label: "Location",         value: selected.location },
+                // { icon: BookOpen, label: "Board / Standard", value: `${selected.board} – ${selected.standard}th` },
+                { icon: BookOpen,   label: "Admission Year",     value: selected.admission_year },
               ].map(({ icon: Icon, label, value }) => (
                 <div key={label} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
                   <Icon className="h-5 w-5 text-muted-foreground shrink-0" />

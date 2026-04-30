@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 // ✅ Always keep base URL only (NO /api here)
 const BACKEND =
-  process.env.BACKEND_URL || "https://institute-api.rhaitech.online/api";
+  process.env.NEXT_PUBLIC_API_URL ;
 
 export async function POST(request: NextRequest) {
   try {

@@ -12,7 +12,7 @@ import { teachersApi } from "@/lib/api"
 
 interface Teacher {
   id: number; name: string; email: string; phone: string
-  institute: string; location: string; subjects: string[]
+ subjects: string[]
 }
 
 export function TeachersContent() {
@@ -46,8 +46,8 @@ export function TeachersContent() {
       "Name",
       "Email",
       "Phone",
-      "Institute",
-      "Location",
+      // "Institute",
+      // "Location",
       "Subjects",
     ]
 
@@ -56,8 +56,8 @@ export function TeachersContent() {
       t.name || "",
       t.email || "",
       t.phone || "",
-      t.institute || "",
-      t.location || "",
+      // t.institute || "",
+      // t.location || "",
       (t.subjects || []).join(", "),
     ])
 
@@ -98,8 +98,8 @@ export function TeachersContent() {
                     <TableHead className="text-white font-semibold">Name</TableHead>
                     <TableHead className="text-white font-semibold hidden sm:table-cell">Email</TableHead>
                     <TableHead className="text-white font-semibold hidden md:table-cell">Phone</TableHead>
-                    <TableHead className="text-white font-semibold hidden lg:table-cell">Institute</TableHead>
-                    <TableHead className="text-white font-semibold">Location</TableHead>
+                    {/* <TableHead className="text-white font-semibold hidden lg:table-cell">Institute</TableHead> */}
+                    <TableHead className="text-white font-semibold">Subjects</TableHead>
                     <TableHead className="text-white font-semibold text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -111,8 +111,8 @@ export function TeachersContent() {
                       <TableCell className="font-medium">{t.name}</TableCell>
                       <TableCell className="hidden sm:table-cell">{t.email}</TableCell>
                       <TableCell className="hidden md:table-cell">{t.phone}</TableCell>
-                      <TableCell className="hidden lg:table-cell">{t.institute}</TableCell>
-                      <TableCell>{t.location}</TableCell>
+                      <TableCell className="hidden lg:table-cell">{t.subjects}</TableCell>
+                      {/* <TableCell>{t.location}</TableCell> */}
                       <TableCell>
                         <div className="flex items-center justify-center gap-2">
                           <Button size="sm" variant="outline" className="h-8 w-8 p-0"
@@ -150,8 +150,8 @@ export function TeachersContent() {
                 { icon: User,     label: "Name",      value: selected.name },
                 { icon: Mail,     label: "Email",     value: selected.email },
                 { icon: Phone,    label: "Phone",     value: selected.phone },
-                { icon: Building, label: "Institute", value: selected.institute },
-                { icon: MapPin,   label: "Location",  value: selected.location },
+                // { icon: Building, label: "Institute", value: selected.institute },
+                { icon: Building,   label: "Subjects",  value: selected.subjects?.join(", ") },
               ].map(({ icon: Icon, label, value }) => (
                 <div key={label} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
                   <Icon className="h-5 w-5 text-muted-foreground shrink-0" />

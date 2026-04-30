@@ -36,7 +36,7 @@ interface FormData {
   parentContact: string
   fatherName: string         // NEW
   location: string           // NEW
-  batch: string
+  // batch: string
   standard: string
   lastExamMarks: string
   collegeName: string
@@ -45,12 +45,12 @@ interface FormData {
   motherOccupation: string
   address: string
   email: string
-  futurePlans: string
+  // futurePlans: string
   reference: string
   siblingName: string
   sex: string
   takingCoaching: string
-  hostelRequired: string
+  // hostelRequired: string
 }
 
 const initial: FormData = {
@@ -60,7 +60,7 @@ const initial: FormData = {
   parentContact: "",
   fatherName: "",        // NEW
   location: "",          // NEW
-  batch: "",
+  // batch: "",
   standard: "",
   lastExamMarks: "",
   collegeName: "",
@@ -69,12 +69,12 @@ const initial: FormData = {
   motherOccupation: "",
   address: "",
   email: "",
-  futurePlans: "",
+  // futurePlans: "",
   reference: "",
   siblingName: "",
   sex: "",
   takingCoaching: "",
-  hostelRequired: "",
+  // hostelRequired: "",
 }
 
 
@@ -97,7 +97,7 @@ export default function InquiryFormPage() {
       if (!form.parentContact.trim()) return "Parent contact is required"
     }
     if (step === 1) {
-      if (!form.batch) return "Please select a batch"
+      // if (!form.batch) return "Please select a batch"
       if (!form.standard) return "Please select a standard"
     }
     if (step === 2) {
@@ -130,7 +130,7 @@ export default function InquiryFormPage() {
   phone: form.studentContact,         // maps to 'phone'
   father_name: "",                    // add a field for parent's name if needed
   father_phone: form.parentContact,   // maps to 'father_phone'
-  course: form.batch,                 // you can use 'batch' or 'course'
+  // course: form.batch,                 // you can use 'batch' or 'course'
   location: "",                        // add location field if needed
   board: "",                            // optional
   standard: form.standard,
@@ -144,17 +144,17 @@ export default function InquiryFormPage() {
   last_exam_marks: form.lastExamMarks,
   father_occupation: form.fatherOccupation,
   mother_occupation: form.motherOccupation,
-  future_plans: form.futurePlans,
+  // future_plans: form.futurePlans,
   reference: form.reference,
   sibling_name: form.siblingName,
   sex: form.sex,
   taking_coaching: form.takingCoaching,
-  hostel_required: form.hostelRequired,
+  // hostel_required: form.hostelRequired,
   admin_id: 0,                        // default
   // inquiry_date will default to current date in DB
 }
 
-    const res = await fetch("https://institute-api.rhaitech.online/api/inquiries/public", {
+    const res = await fetch(process.env.NEXT_PUBLIC_API_URL + "/inquiries/public", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -320,12 +320,12 @@ export default function InquiryFormPage() {
               {/* STEP 1 — Academic */}
               {step === 1 && (
                 <>
-                  <Field label="Select Batch" required>
+                  {/* <Field label="Select Batch" required>
                     <select value={form.batch} onChange={e => set("batch", e.target.value)} className={selectCls}>
                       <option value="">-- Select Batch --</option>
                       {BATCHES.map(b => <option key={b} value={b}>{b}</option>)}
                     </select>
-                  </Field>
+                  </Field> */}
                   <Field label="Select Standard" required>
                     <select value={form.standard} onChange={e => set("standard", e.target.value)} className={selectCls}>
                       <option value="">-- Select Standard --</option>
@@ -392,13 +392,13 @@ export default function InquiryFormPage() {
                       className={inputCls}
                     />
                   </Field>
-                  <Field label="Future Plans / Goals">
+                  {/* <Field label="Future Plans / Goals">
                     <input
                       type="text" placeholder="e.g. IIT, NEET, CA, MBA..."
                       value={form.futurePlans} onChange={e => set("futurePlans", e.target.value)}
                       className={inputCls}
                     />
-                  </Field>
+                  </Field> */}
                 </>
               )}
 
@@ -436,13 +436,13 @@ export default function InquiryFormPage() {
                         <option value="No">No</option>
                       </select>
                     </Field>
-                    <Field label="Hostel Required?">
+                    {/* <Field label="Hostel Required?">
                       <select value={form.hostelRequired} onChange={e => set("hostelRequired", e.target.value)} className={selectCls}>
                         <option value="">-- Select --</option>
                         <option value="Yes">Yes</option>
                         <option value="No">No</option>
                       </select>
-                    </Field>
+                    </Field> */}
                   </div>
 
                   {/* Confirmation notice */}

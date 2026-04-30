@@ -12,7 +12,7 @@ import { studentsApi, teachersApi, staffApi } from "@/lib/api"
 export function RegisterUserContent() {
   const [formData, setFormData] = useState({
     name:"", email:"", phone:"", role:"",
-    standard:"", board:"", institute:"", location:"",
+    standard:"", admission_year: "", 
     father_name:"", father_phone:"", course:"", subjects:"",
     department:"", designation:"",
     fees: "10000"   // ✅ default fees
@@ -45,11 +45,12 @@ export function RegisterUserContent() {
           phone: formData.phone,
           father_name: formData.father_name,
           father_phone: formData.father_phone,
-          board: formData.board,
+          // board: formData.board,
           standard: formData.standard,
+          admission_year: formData.admission_year,
           course: formData.course,
-          location: formData.location,
-          institute: formData.institute,
+          // location: formData.location,
+          // institute: formData.institute,
           fees: Number(formData.fees),
           student_id: studentId // send generated ID to backend
         })
@@ -63,8 +64,8 @@ export function RegisterUserContent() {
           name: formData.name,
           email: formData.email,
           phone: formData.phone,
-          institute: formData.institute,
-          location: formData.location,
+          // institute: formData.institute,
+          // location: formData.location,
           subjects: formData.subjects
             ? formData.subjects.split(",").map(s => s.trim())
             : [],
@@ -75,8 +76,8 @@ export function RegisterUserContent() {
           name: formData.name,
           email: formData.email,
           phone: formData.phone,
-          institute: formData.institute,
-          location: formData.location,
+          // institute: formData.institute,
+          // location: formData.location,
           department: formData.department,
           designation: formData.designation,
         })
@@ -86,7 +87,7 @@ export function RegisterUserContent() {
       // Reset form
       setFormData({
         name:"", email:"", phone:"", role:"",
-        standard:"", board:"", institute:"", location:"",
+        standard:"", admission_year: "", 
         father_name:"", father_phone:"", course:"", subjects:"",
         department:"", designation:"",
         fees: "10000"
@@ -180,7 +181,7 @@ export function RegisterUserContent() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
+                {/* <div className="space-y-2">
                   <Label className="flex items-center gap-2"><BookOpen className="h-4 w-4 text-emerald-500" /> Board</Label>
                   <Select value={formData.board} onValueChange={v => set("board", v)}>
                     <SelectTrigger><SelectValue placeholder="Select Board" /></SelectTrigger>
@@ -190,6 +191,10 @@ export function RegisterUserContent() {
                       <SelectItem value="State">State Board</SelectItem>
                     </SelectContent>
                   </Select>
+                </div> */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2"><BookOpen className="h-4 w-4 text-emerald-500" /> Admission Year</Label>
+                  <Input value={formData.admission_year} onChange={e => set("admission_year", e.target.value)} placeholder="e.g. 2023" />
                 </div>
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2"><BookOpen className="h-4 w-4 text-emerald-500" /> Course</Label>
@@ -209,11 +214,11 @@ export function RegisterUserContent() {
             )}
 
             {/* Common fields */}
-            <div className="space-y-2">
+            {/* <div className="space-y-2">
               <Label className="flex items-center gap-2"><Building className="h-4 w-4 text-emerald-500" /> Institute Name</Label>
               <Input value={formData.institute} onChange={e => set("institute", e.target.value)} placeholder="Institute name" />
-            </div>
-            <div className="space-y-2">
+            </div> */}
+            {/* <div className="space-y-2">
               <Label className="flex items-center gap-2"><MapPin className="h-4 w-4 text-emerald-500" /> Location</Label>
               <Select value={formData.location} onValueChange={v => set("location", v)}>
                 <SelectTrigger><SelectValue placeholder="Select Location" /></SelectTrigger>
@@ -223,7 +228,7 @@ export function RegisterUserContent() {
                   <SelectItem value="Thergaon">Thergaon</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+            </div> */}
           </div>
 
           <Button onClick={handleSubmit} disabled={loading}

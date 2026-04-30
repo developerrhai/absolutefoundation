@@ -22,16 +22,22 @@ interface FormData {
   fatherName: string
   fatherPhone: string
   email: string
-  board: string
+  // board: string
   standard: string
-  branch: string
+  // branch: string
   course: string
+  father_occupation: string
+  adhar_number: string
+  profile_img: string
+  address: string
+  admission_year: string
+
 }
 
 const initial: FormData = {
-  studentName: "", studentPhone: "",
-  fatherName: "", fatherPhone: "",
-  email: "", board: "", standard: "", branch: "", course: "",
+  studentName: "", studentPhone: "", adhar_number: "", profile_img:"", address: "",
+  fatherName: "", fatherPhone: "", father_occupation: "", 
+  email: "",  standard: "", course: "",admission_year: ""
 }
 
 export default function AdmissionFormPage() {
@@ -58,7 +64,7 @@ export default function AdmissionFormPage() {
   }
 
   const validate = () => {
-    const required: (keyof FormData)[] = ["studentName","studentPhone","email","fatherName","fatherPhone","board","standard","branch"]
+    const required: (keyof FormData)[] = ["studentName","studentPhone","email","fatherName","fatherPhone","father_occupation","standard","adhar_number","profile_img","address","admission_year"]
     if (isSenior) required.push("course")
     const allTouched: Partial<Record<keyof FormData, boolean>> = {}
     required.forEach(k => { allTouched[k] = true })
@@ -79,7 +85,7 @@ export default function AdmissionFormPage() {
     setError("")
     setSubmitting(true)
     try {
-      const res = await fetch("https://institute-api.rhaitech.online/api/admissions/public", {
+      const res = await fetch(process.env.NEXT_PUBLIC_API_URL + "/admissions/public", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -88,16 +94,22 @@ export default function AdmissionFormPage() {
           father_name:  form.fatherName,
           email:        form.email,
           father_phone: form.fatherPhone,
-          board:        form.board,
+          father_occupation: form.father_occupation,
+          adhar_number: form.adhar_number,
+          profile_img: form.profile_img,
+          address: form.address,
+          admission_year: form.admission_year,
+          // board:        form.board,
           standard:     form.standard,
-          location:     form.branch,
+          // location:     form.branch,
           course:       isSenior ? form.course : "",
         }),
       })
       const data = await res.json()
       if (data.success) setSubmitted(true)
       else setError(data.message || "Submission failed. Please try again.")
-    } catch {
+    } catch(e) {
+      console.log("Admission form submission error:", e)
       setError("Network error. Please check your connection.")
     } finally {
       setSubmitting(false)
@@ -124,7 +136,7 @@ export default function AdmissionFormPage() {
               Our team will call you at <span className="text-gray-600 font-medium">{form.studentPhone}</span> shortly.
             </p>
             <div className="bg-blue-50 rounded-2xl p-4 text-sm text-blue-700 font-medium">
-              DNYANSAGAR CLASSESS· {form.branch} Branch
+              DNYANSAGAR CLASSESS
             </div>
             <button
               onClick={() => { setForm(initial); setTouched({}); setSubmitted(false) }}
@@ -200,6 +212,72 @@ export default function AdmissionFormPage() {
                   </svg>
                 }
               />
+
+              <InputField
+                placeholder="Aadhar Number"
+                value={form.adhar_number}
+                onChange={v => set("adhar_number", v)}
+                error={fieldError("adhar_number")}
+                icon={
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        strokeWidth={2} 
+                        d="M3 7h18M3 17h18M4 5h16a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V7a2 2 0 012-2z"
+                      />
+                      <circle 
+                        cx="8" 
+                        cy="12" 
+                        r="2" 
+                        strokeWidth={2}
+                      />
+                      <path 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        strokeWidth={2} 
+                        d="M14 11h4M14 14h4"
+                      />
+                    </svg>
+                }
+              />
+              <InputField
+                placeholder="Address"
+                value={form.address}
+                onChange={v => set("address", v)}
+                error={fieldError("address")}
+                icon={
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0L6.343 16.657A8 8 0 1117.657 16.657z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                }
+              />
+              
+              //profile file type input
+              <InputField
+                placeholder="Profile"
+                type="file"
+                value={form.profile_img}
+                onChange={v => set("profile_img", v)}
+                error={fieldError("profile_img")}
+                icon={
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                }
+              />
             </Section>
 
             {/* Parent Details */}
@@ -229,11 +307,27 @@ export default function AdmissionFormPage() {
                   </svg>
                 }
               />
+              <InputField
+                placeholder="Father Occupation"
+                value={form.father_occupation}
+                onChange={v => set("father_occupation", v)}
+                error={fieldError("father_occupation")}
+                icon={
+                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M20 13V8a2 2 0 00-2-2h-3V4a2 2 0 00-2-2H11a2 2 0 00-2 2v2H6a2 2 0 00-2 2v5m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0H4"
+                    />
+                  </svg>
+                }
+              />
             </Section>
 
             {/* Academic Details */}
             <Section label="Academic Details" color="cyan">
-              <SelectField
+              {/* <SelectField
                 placeholder="Select Board"
                 value={form.board}
                 onChange={v => set("board", v)}
@@ -245,7 +339,7 @@ export default function AdmissionFormPage() {
                       d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                   </svg>
                 }
-              />
+              /> */}
               <SelectField
                 placeholder="Select Standard"
                 value={form.standard}
@@ -276,10 +370,26 @@ export default function AdmissionFormPage() {
                   }
                 />
               )}
+              <InputField
+                placeholder="Admission Year"
+                value={form.admission_year}
+                onChange={v => set("admission_year", v)}
+                error={fieldError("admission_year")}
+                icon={
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 7V3m8 4V3m-9 8h10M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z"
+                    />
+                  </svg>
+                }
+              />
             </Section>
 
             {/* Branch */}
-            <Section label="Branch" color="sky">
+            {/* <Section label="Branch" color="sky">
               <SelectField
                 placeholder="Select Branch"
                 value={form.branch}
@@ -295,7 +405,7 @@ export default function AdmissionFormPage() {
                   </svg>
                 }
               />
-            </Section>
+            </Section> */}
 
             {/* Error */}
             {error && (
@@ -364,32 +474,58 @@ function Section({ label, color, children }: { label: string; color: string; chi
   )
 }
 
-/* ── Input field ────────────────────────────────────── */
 function InputField({
-  placeholder, type = "text", value, onChange, error, icon
+  placeholder,
+  type = "text",
+  value,
+  onChange,
+  error,
+  icon
 }: {
-  placeholder: string; type?: string; value: string
-  onChange: (v: string) => void; error?: string; icon?: React.ReactNode
+  placeholder: string
+  type?: string
+  value: string
+  onChange: (v: string) => void
+  error?: string
+  icon?: React.ReactNode
 }) {
   return (
     <div>
-      <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border bg-white transition-all duration-200 ${
-        error ? "border-red-300 bg-red-50/30" : "border-gray-200 hover:border-blue-300 focus-within:border-[#0d6efd] focus-within:ring-3 focus-within:ring-[#0d6efd]/10"
-      }`}>
+      <div
+        className={`flex items-center gap-3 px-4 py-3 rounded-xl border bg-white transition-all duration-200 ${
+          error
+            ? "border-red-300 bg-red-50/30"
+            : "border-gray-200 hover:border-blue-300 focus-within:border-[#0d6efd] focus-within:ring-3 focus-within:ring-[#0d6efd]/10"
+        }`}
+      >
         {icon && <span className="text-gray-400 shrink-0">{icon}</span>}
+
         <input
           type={type}
           placeholder={placeholder}
-          value={value}
-          onChange={e => onChange(e.target.value)}
+          {...(type !== "file" ? { value } : {})}
+          onChange={(e) => {
+            if (type === "file") {
+              const file = e.target.files?.[0]
+              if (file) {
+                const reader = new FileReader()
+                reader.onloadend = () => {
+                  onChange(reader.result as string) // base64
+                }
+                reader.readAsDataURL(file)
+              }
+            } else {
+              onChange(e.target.value)
+            }
+          }}
           className="flex-1 bg-transparent text-gray-700 text-sm placeholder-gray-400 outline-none"
         />
       </div>
+
       {error && <p className="text-red-500 text-xs mt-1 ml-1">{error}</p>}
     </div>
   )
 }
-
 /* ── Select field ───────────────────────────────────── */
 function SelectField({
   placeholder, value, onChange, options, error, icon

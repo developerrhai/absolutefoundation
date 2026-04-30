@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://institute-api.rhaitech.online/api", // backend url
+  baseURL: process.env.NEXT_PUBLIC_API_URL, // backend url
   headers: {
     "Content-Type": "application/json",
   },
