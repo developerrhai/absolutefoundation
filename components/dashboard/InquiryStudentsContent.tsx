@@ -14,15 +14,15 @@ interface Inquiry {
   lastExamMarks: string
   collegeName: string
   collegeTiming: string
-  fatherOccupation: string
-  motherOccupation: string
+  // fatherOccupation: string
+  // motherOccupation: string
   address: string
   email: string
   futurePlans: string
   reference: string
   siblingName: string
   sex: string
-  takingCoaching: string
+  // takingCoaching: string
   hostelRequired: string
   created_at: string
 }
@@ -45,13 +45,13 @@ interface InquiryExtraRow {
   college_name: string
   college_timing: string
   last_exam_marks: string
-  father_occupation: string
-  mother_occupation: string
+  // father_occupation: string
+  // mother_occupation: string
   future_plans: string
   reference: string
   sibling_name: string
   sex: string
-  taking_coaching: string
+  // taking_coaching: string
   hostel_required: string
   admin_id: number
   inquiry_date: string
@@ -72,11 +72,11 @@ const EMPTY_FORM = {
   college_name: "",
   college_timing: "",
   future_plans: "",
-  father_occupation: "",
-  mother_occupation: "",
+  // father_occupation: "",
+  // mother_occupation: "",
   sibling_name: "",
   reference: "",
-  taking_coaching: "",
+  // taking_coaching: "",
   hostel_required: "",
 }
 
@@ -120,8 +120,8 @@ export function InquiryStudentsContent() {
   const [filterBatch, setFilterBatch] = useState("")
 
   // ── Drawer state ──
-  const [drawerMounted, setDrawerMounted] = useState(false)  // controls DOM presence
-  const [drawerOpen, setDrawerOpen]       = useState(false)  // controls animation class
+  const [drawerMounted, setDrawerMounted] = useState(false)
+  const [drawerOpen, setDrawerOpen]       = useState(false)
   const [formData, setFormData]           = useState(EMPTY_FORM)
   const [formLoading, setFormLoading]     = useState(false)
   const [formError, setFormError]         = useState("")
@@ -144,15 +144,15 @@ export function InquiryStudentsContent() {
           lastExamMarks: row.last_exam_marks || "",
           collegeName: row.college_name || "",
           collegeTiming: row.college_timing || "",
-          fatherOccupation: row.father_occupation || "",
-          motherOccupation: row.mother_occupation || "",
+          // fatherOccupation: row.father_occupation || "",
+          // motherOccupation: row.mother_occupation || "",
           address: row.address || "",
           email: row.email || "",
           futurePlans: row.future_plans || "",
           reference: row.reference || "",
           siblingName: row.sibling_name || "",
           sex: row.sex || "",
-          takingCoaching: row.taking_coaching || "",
+          // takingCoaching: row.taking_coaching || "",
           hostelRequired: row.hostel_required || "",
           created_at: row.inquiry_date || "",
         }))
@@ -169,13 +169,11 @@ export function InquiryStudentsContent() {
 
   useEffect(() => { fetchInquiries() }, [fetchInquiries])
 
-  // Open: mount DOM first, then trigger slide-in on next frame
   const openDrawer = () => {
     setDrawerMounted(true)
     requestAnimationFrame(() => setDrawerOpen(true))
   }
 
-  // Close: trigger slide-out, then unmount after animation
   const closeDrawer = () => {
     setDrawerOpen(false)
     setTimeout(() => {
@@ -203,7 +201,7 @@ export function InquiryStudentsContent() {
       const data: any = await inquiryExtraApi.create(payload)
       if (data.success) {
         setFormSuccess("Inquiry added successfully!")
-        setFormData(EMPTY_FORM) 
+        setFormData(EMPTY_FORM)
         await fetchInquiries()
         setTimeout(() => closeDrawer(), 1200)
       } else {
@@ -228,7 +226,7 @@ export function InquiryStudentsContent() {
     return matchSearch && matchSex && matchBatch
   })
 
-    const handleExportExcel = () => {
+  const handleExportExcel = () => {
     if (!filtered.length) {
       alert("No inquiries to export")
       return
@@ -245,7 +243,7 @@ export function InquiryStudentsContent() {
       "Batch",
       "Reference",
       "Hostel Required",
-      "Taking Coaching",
+      // "Taking Coaching",
       "Date",
     ]
 
@@ -260,7 +258,7 @@ export function InquiryStudentsContent() {
       inq.batch || "",
       inq.reference || "",
       inq.hostelRequired || "",
-      inq.takingCoaching || "",
+      // inq.takingCoaching || "",
       inq.created_at ? new Date(inq.created_at).toLocaleDateString("en-CA") : "",
     ])
 
@@ -276,7 +274,6 @@ export function InquiryStudentsContent() {
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
   }
-
 
   const statCards = [
     {
@@ -301,17 +298,17 @@ export function InquiryStudentsContent() {
         </svg>
       ),
     },
-    {
-      label: "Taking Coaching",
-      value: inquiries.filter(i => i.takingCoaching === "Yes").length,
-      bg: "bg-[#EA580C]",
-      icon: (
-        <svg className="w-6 h-6 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-        </svg>
-      ),
-    },
+    // {
+    //   label: "Taking Coaching",
+    //   value: inquiries.filter(i => i.takingCoaching === "Yes").length,
+    //   bg: "bg-[#EA580C]",
+    //   icon: (
+    //     <svg className="w-6 h-6 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    //       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+    //         d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+    //     </svg>
+    //   ),
+    // },
     {
       label: "Online Batch",
       value: inquiries.filter(i => i.batch === "Online").length,
@@ -338,7 +335,6 @@ export function InquiryStudentsContent() {
             <p className="text-gray-500 text-sm mt-0.5">All student inquiries submitted via the public form</p>
           </div>
           <div className="flex items-center gap-2 self-start sm:self-auto">
-            {/* ADD INQUIRY — opens drawer */}
             <button
               onClick={openDrawer}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors shadow-sm"
@@ -358,7 +354,7 @@ export function InquiryStudentsContent() {
               </svg>
               Refresh
             </button>
-             <button
+            <button
               onClick={handleExportExcel}
               className="flex items-center gap-2 px-4 py-2 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-sm font-semibold transition-colors"
             >
@@ -371,7 +367,7 @@ export function InquiryStudentsContent() {
         </div>
 
         {/* ── Stat Cards ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           {statCards.map(card => (
             <div key={card.label} className={`${card.bg} rounded-2xl px-5 py-5 flex flex-col gap-3`}>
               <div className="flex items-center justify-between">
@@ -546,13 +542,11 @@ export function InquiryStudentsContent() {
       ══════════════════════════════════════════════════ */}
       {drawerMounted && (
         <>
-          {/* Dimmed backdrop — click to close */}
           <div
             className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm fade-in-bg"
             onClick={closeDrawer}
           />
 
-          {/* Drawer panel */}
           <div
             className={`fixed top-0 right-0 z-50 h-screen w-full max-w-[480px] bg-white shadow-2xl flex flex-col ${drawerOpen ? "drawer-in" : "drawer-out"}`}
           >
@@ -579,7 +573,6 @@ export function InquiryStudentsContent() {
               </button>
             </div>
 
-            {/* Thin progress bar under header */}
             <div className="shrink-0 h-1 bg-gray-100">
               <div
                 className="h-full bg-[#2563EB] transition-all duration-500"
@@ -590,7 +583,6 @@ export function InquiryStudentsContent() {
             {/* ── Scrollable Form Body ── */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
-              {/* Status banners */}
               {formSuccess && (
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm">
                   <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -689,14 +681,14 @@ export function InquiryStudentsContent() {
               {/* Section: Family & Other Info */}
               <FormSection title="Family & Other Info" color="orange">
                 <div className="grid grid-cols-2 gap-3">
-                  <FormField label="Father's Occupation">
+                  {/* <FormField label="Father's Occupation">
                     <input name="father_occupation" value={formData.father_occupation} onChange={handleFormChange}
                       placeholder="e.g. Business" className={inputCls} />
                   </FormField>
                   <FormField label="Mother's Occupation">
                     <input name="mother_occupation" value={formData.mother_occupation} onChange={handleFormChange}
                       placeholder="e.g. Homemaker" className={inputCls} />
-                  </FormField>
+                  </FormField> */}
                   <FormField label="Sibling Name">
                     <input name="sibling_name" value={formData.sibling_name} onChange={handleFormChange}
                       placeholder="If any" className={inputCls} />
@@ -709,13 +701,13 @@ export function InquiryStudentsContent() {
                       ))}
                     </select>
                   </FormField>
-                  <FormField label="Taking Coaching">
+                  {/* <FormField label="Taking Coaching">
                     <select name="taking_coaching" value={formData.taking_coaching} onChange={handleFormChange} className={inputCls}>
                       <option value="">Select</option>
                       <option value="Yes">Yes</option>
                       <option value="No">No</option>
                     </select>
-                  </FormField>
+                  </FormField> */}
                   <FormField label="Hostel Required">
                     <select name="hostel_required" value={formData.hostel_required} onChange={handleFormChange} className={inputCls}>
                       <option value="">Select</option>
@@ -727,7 +719,7 @@ export function InquiryStudentsContent() {
               </FormSection>
             </div>
 
-            {/* ── Drawer Footer — pinned ── */}
+            {/* ── Drawer Footer ── */}
             <div className="shrink-0 px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between gap-3">
               <p className="text-gray-400 text-xs">
                 <span className="text-red-400 font-bold">*</span> Required fields
@@ -768,7 +760,7 @@ export function InquiryStudentsContent() {
         </>
       )}
 
-      {/* ── VIEW Detail Modal (unchanged) ── */}
+      {/* ── VIEW Detail Modal ── */}
       {selected && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
@@ -813,14 +805,14 @@ export function InquiryStudentsContent() {
                 <InfoRow label="Future Plans"    value={selected.futurePlans || "—"} />
               </InfoGroup>
               <InfoGroup title="Family & Contact" color="orange">
-                <InfoRow label="Father's Occupation" value={selected.fatherOccupation || "—"} />
-                <InfoRow label="Mother's Occupation" value={selected.motherOccupation || "—"} />
-                <InfoRow label="Address"             value={selected.address} />
-                <InfoRow label="Sibling Name"        value={selected.siblingName || "—"} />
+                {/* <InfoRow label="Father's Occupation" value={selected.fatherOccupation || "—"} /> */}
+                {/* <InfoRow label="Mother's Occupation" value={selected.motherOccupation || "—"} /> */}
+                <InfoRow label="Address"         value={selected.address} />
+                <InfoRow label="Sibling Name"    value={selected.siblingName || "—"} />
               </InfoGroup>
               <InfoGroup title="Other Info" color="dark">
                 <InfoRow label="Reference"       value={selected.reference || "—"} />
-                <InfoRow label="Taking Coaching" value={selected.takingCoaching || "—"} />
+                {/* <InfoRow label="Taking Coaching" value={selected.takingCoaching || "—"} /> */}
                 <InfoRow label="Hostel Required" value={selected.hostelRequired || "—"} />
                 <InfoRow label="Submitted On"    value={
                   selected.created_at
