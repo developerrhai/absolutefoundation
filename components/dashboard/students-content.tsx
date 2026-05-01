@@ -14,22 +14,8 @@ import { studentsApi, studentsUniversalApi } from "@/lib/api"
 import * as XLSX from "xlsx"
 
 interface Student {
-  id: number
-  name: string
-  phone: string
-  email?: string
-  father_name: string
-  father_phone: string
-  father_occupation?: string
-  standard: string
-  course: string
-  admission_year: string
-  location?: string
-  address?: string
-  adhar_number?: string
-  profile_img?: string
-  fee: number
-  paid_fee: number
+  id: number; name: string; phone: string; father_name: string; father_phone: string
+  standard: string; course: string; admission_year: string; fee: number; paid_fee: number
 }
 
 // Fee status badge helper
@@ -481,77 +467,44 @@ export function StudentsContent() {
       </Card>
 
       {/* ── View Modal ───────────────────────────────────── */}
-        <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+      <Dialog open={viewOpen} onOpenChange={setViewOpen}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <GraduationCap className="h-5 w-5" /> Student Details
             </DialogTitle>
           </DialogHeader>
-
           {selected && (
-            <div className="space-y-4">
-
-              {/* Profile Image */}
-              {selected.profile_img && (
-                <div className="flex justify-center">
-                  <img
-                    src={selected.profile_img}
-                    alt="Profile"
-                    className="w-24 h-24 rounded-full object-cover border"
-                  />
-                </div>
-              )}
-
+            <div className="space-y-3">
               {[
-                { icon: User,  label: "Name", value: selected.name },
-                { icon: Phone, label: "Phone", value: selected.phone },
-                { icon: Mail,  label: "Email", value: selected.email },
-
-                { icon: User,  label: "Father Name", value: selected.father_name },
-                { icon: Phone, label: "Father Phone", value: selected.father_phone },
-                { icon: Briefcase, label: "Father Occupation", value: selected.father_occupation },
-
-                { icon: BookOpen, label: "Standard", value: selected.standard },
-                { icon: BookOpen, label: "Course", value: selected.course || "N/A" },
-
-                { icon: MapPin, label: "Location", value: selected.location || "N/A" },
-                { icon: Home, label: "Address", value: selected.address },
-
-                { icon: Calendar, label: "Admission Year", value: selected.admission_year },
-                { icon: CreditCard, label: "Aadhar Number", value: selected.adhar_number },
-
+                { icon: User,     label: "Name",             value: selected.name },
+                { icon: Phone,    label: "Phone",            value: selected.phone },
+                { icon: User,     label: "Father Name",      value: selected.father_name },
+                { icon: Phone,    label: "Father Phone",     value: selected.father_phone },
+                // { icon: BookOpen, label: "Board / Standard", value: `${selected.board} – ${selected.standard}th` },
+                { icon: BookOpen,   label: "Admission Year",     value: selected.admission_year },
               ].map(({ icon: Icon, label, value }) => (
                 <div key={label} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
                   <Icon className="h-5 w-5 text-muted-foreground shrink-0" />
                   <div>
                     <p className="text-sm text-muted-foreground">{label}</p>
-                    <p className="font-medium break-all">
-                      {value || "—"}
-                    </p>
+                    <p className="font-medium">{value}</p>
                   </div>
                 </div>
               ))}
 
-              {/* Fee Section */}
+              {/* Fee summary inside view modal */}
               <div className="p-3 bg-muted rounded-lg space-y-2">
                 <p className="text-sm text-muted-foreground font-medium">Fee Summary</p>
-
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="bg-background rounded-lg p-2">
                     <p className="text-xs text-muted-foreground">Total Fee</p>
-                    <p className="font-bold text-sm">
-                      ₹{Number(selected.fee).toLocaleString()}
-                    </p>
+                    <p className="font-bold text-sm">₹{Number(selected.fee).toLocaleString()}</p>
                   </div>
-
                   <div className="bg-background rounded-lg p-2">
                     <p className="text-xs text-muted-foreground">Paid</p>
-                    <p className="font-bold text-sm text-emerald-600">
-                      ₹{Number(selected.paid_fee).toLocaleString()}
-                    </p>
+                    <p className="font-bold text-sm text-emerald-600">₹{Number(selected.paid_fee).toLocaleString()}</p>
                   </div>
-
                   <div className="bg-background rounded-lg p-2">
                     <p className="text-xs text-muted-foreground">Balance</p>
                     <p className="font-bold text-sm text-red-500">
@@ -559,20 +512,18 @@ export function StudentsContent() {
                     </p>
                   </div>
                 </div>
-
                 <div className="w-full bg-muted-foreground/20 rounded-full h-2 mt-1">
                   <div
-                    className="bg-emerald-500 h-2 rounded-full"
-                    style={{
-                      width: `${Math.min(
-                        (Number(selected.paid_fee) / (Number(selected.fee) || 1)) * 100,
-                        100
-                      )}%`,
-                    }}
+                    className="bg-emerald-500 h-2 rounded-full transition-all"
+                    style={{ width: `${Math.min((Number(selected.paid_fee) / (Number(selected.fee) || 1)) * 100, 100)}%` }}
                   />
                 </div>
+                <p className="text-xs text-right text-muted-foreground">
+                  {Number(selected.fee) > 0
+                    ? `${Math.round((Number(selected.paid_fee) / Number(selected.fee)) * 100)}% paid`
+                    : "No fee set"}
+                </p>
               </div>
-
             </div>
           )}
         </DialogContent>
