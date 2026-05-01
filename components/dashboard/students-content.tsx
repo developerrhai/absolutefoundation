@@ -468,160 +468,161 @@ export function StudentsContent() {
       </Card>
 
       {/* ── View Modal ───────────────────────────────────── */}
-      <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <GraduationCap className="h-5 w-5" /> Student Details
-            </DialogTitle>
-          </DialogHeader>
-          {selected && (() => {
-            const SOURCES = [
-              "Walk-in", "Online Ad", "Social Media",
-              "Referral – Friend", "Referral – Parent",
-              "School Visit", "Newspaper Ad", "Banner / Hoarding", "Other",
-            ]
-            const activeIdx = Math.max(0, SOURCES.indexOf(selected.admission_from ?? ""))
+     {/* ── View Modal ───────────────────────────────────── */}
+  <Dialog open={viewOpen} onOpenChange={setViewOpen}>
+    <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <GraduationCap className="h-5 w-5" /> Student Details
+        </DialogTitle>
+      </DialogHeader>
+      {selected && (() => {
+        const SOURCES = [
+          "Walk-in", "Online Ad", "Social Media",
+          "Referral – Friend", "Referral – Parent",
+          "School Visit", "Newspaper Ad", "Banner / Hoarding", "Other",
+        ]
+        const activeIdx = Math.max(0, SOURCES.indexOf(selected.admission_from ?? ""))
 
-            return (
-              <div className="space-y-3">
+        return (
+          <div className="space-y-3">
 
-                {/* ── Profile image ── */}
-                <div className="flex justify-center">
-                  {selected.profile_img ? (
-                    <img
-                      src={selected.profile_img}
-                      alt={selected.name}
-                      className="w-20 h-20 rounded-full object-cover border-2 border-border"
-                    />
-                  ) : (
-                    <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center text-2xl font-bold text-muted-foreground border-2 border-border">
-                      {selected.name?.charAt(0)?.toUpperCase()}
-                    </div>
-                  )}
+            {/* ── Profile image ── */}
+            <div className="flex justify-center">
+              {selected.profile_img ? (
+                <img
+                  src={selected.profile_img}
+                  alt={selected.name}
+                  className="w-20 h-20 rounded-full object-cover border-2 border-border"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center text-2xl font-bold text-muted-foreground border-2 border-border">
+                  {selected.name?.charAt(0)?.toUpperCase()}
                 </div>
+              )}
+            </div>
 
-                {/* ── Info rows ── */}
-                {[
-                  { icon: User,     label: "Name",          value: selected.name },
-                  { icon: Phone,    label: "Phone",          value: selected.phone },
-                  { icon: User,     label: "Father Name",    value: selected.father_name },
-                  { icon: Phone,    label: "Father Phone",   value: selected.father_phone },
-                  { icon: BookOpen, label: "Admission Year", value: selected.admission_year },
-                  { icon: User,     label: "Aadhaar Number", value: selected.adhar_number || "—" },
-                ].map(({ icon: Icon, label, value }) => (
-                  <div key={label} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-                    <Icon className="h-5 w-5 text-muted-foreground shrink-0" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">{label}</p>
-                      <p className="font-medium">{value}</p>
-                    </div>
-                  </div>
-                ))}
-
-                {/* ── Admission From — horizontal scroller ── */}
-                <div className="p-3 bg-muted rounded-lg space-y-2">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <p className="text-sm text-muted-foreground font-medium">Admission From</p>
-                  </div>
-
-                  {/* Scrollable chip row */}
-                  <div className="relative">
-                    {/* Left fade */}
-                    <div className="pointer-events-none absolute left-0 top-0 h-full w-6 bg-gradient-to-r from-muted to-transparent z-10" />
-                    {/* Right fade */}
-                    <div className="pointer-events-none absolute right-0 top-0 h-full w-6 bg-gradient-to-l from-muted to-transparent z-10" />
-
-                    <div className="flex gap-2 overflow-x-auto scrollbar-hide py-1 px-1 scroll-smooth">
-                      {SOURCES.map((src, i) => (
-                        <span
-                          key={src}
-                          className={`
-                            shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
-                            border transition-all whitespace-nowrap
-                            ${i === activeIdx
-                              ? "bg-blue-600 text-white border-blue-600 ring-2 ring-blue-300 ring-offset-1"
-                              : "bg-background text-muted-foreground border-border opacity-50"
-                            }
-                          `}
-                        >
-                          {i === activeIdx && (
-                            <MapPin className="h-3 w-3 shrink-0" />
-                          )}
-                          {src}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Slider track below chips */}
-                  <div className="mt-1 relative h-1.5 rounded-full bg-background">
-                    <div
-                      className="absolute h-1.5 rounded-full bg-blue-500 transition-all duration-300"
-                      style={{ width: `${(activeIdx / (SOURCES.length - 1)) * 100}%` }}
-                    />
-                    <div
-                      className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-blue-600 border-2 border-white transition-all duration-300"
-                      style={{ left: `calc(${(activeIdx / (SOURCES.length - 1)) * 100}% - 7px)` }}
-                    />
-                  </div>
-
-                  {/* Step label */}
-                  <div className="flex justify-between text-[10px] text-muted-foreground px-0.5">
-                    <span>{SOURCES[0]}</span>
-                    <span>{SOURCES[Math.floor(SOURCES.length / 2)]}</span>
-                    <span>{SOURCES[SOURCES.length - 1]}</span>
-                  </div>
-
-                  {/* Active value pill */}
-                  {selected.admission_from && (
-                    <div className="flex justify-center pt-0.5">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        <MapPin className="h-3 w-3" />
-                        {selected.admission_from}
-                      </span>
-                    </div>
-                  )}
+            {/* ── Info rows ── */}
+            {[
+              { icon: User,     label: "Name",          value: selected.name },
+              { icon: Phone,    label: "Phone",          value: selected.phone },
+              { icon: User,     label: "Father Name",    value: selected.father_name },
+              { icon: Phone,    label: "Father Phone",   value: selected.father_phone },
+              { icon: BookOpen, label: "Admission Year", value: selected.admission_year },
+              { icon: User,     label: "Aadhaar Number", value: selected.adhar_number || "—" },
+            ].map(({ icon: Icon, label, value }) => (
+              <div key={label} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                <Icon className="h-5 w-5 text-muted-foreground shrink-0" />
+                <div>
+                  <p className="text-sm text-muted-foreground">{label}</p>
+                  <p className="font-medium">{value}</p>
                 </div>
+              </div>
+            ))}
 
-                {/* ── Fee summary ── */}
-                <div className="p-3 bg-muted rounded-lg space-y-2">
-                  <p className="text-sm text-muted-foreground font-medium">Fee Summary</p>
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <div className="bg-background rounded-lg p-2">
-                      <p className="text-xs text-muted-foreground">Total Fee</p>
-                      <p className="font-bold text-sm">₹{Number(selected.fee).toLocaleString()}</p>
-                    </div>
-                    <div className="bg-background rounded-lg p-2">
-                      <p className="text-xs text-muted-foreground">Paid</p>
-                      <p className="font-bold text-sm text-emerald-600">₹{Number(selected.paid_fee).toLocaleString()}</p>
-                    </div>
-                    <div className="bg-background rounded-lg p-2">
-                      <p className="text-xs text-muted-foreground">Balance</p>
-                      <p className="font-bold text-sm text-red-500">
-                        ₹{(Number(selected.fee) - Number(selected.paid_fee)).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="w-full bg-muted-foreground/20 rounded-full h-2 mt-1">
-                    <div
-                      className="bg-emerald-500 h-2 rounded-full transition-all"
-                      style={{ width: `${Math.min((Number(selected.paid_fee) / (Number(selected.fee) || 1)) * 100, 100)}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-right text-muted-foreground">
-                    {Number(selected.fee) > 0
-                      ? `${Math.round((Number(selected.paid_fee) / Number(selected.fee)) * 100)}% paid`
-                      : "No fee set"}
+            {/* ── Admission From — horizontal scroller ── */}
+            <div className="p-3 bg-muted rounded-lg space-y-2">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                <p className="text-sm text-muted-foreground font-medium">Admission From</p>
+              </div>
+
+              {/* Scrollable chip row */}
+              <div className="relative">
+                {/* Left fade */}
+                <div className="pointer-events-none absolute left-0 top-0 h-full w-6 bg-gradient-to-r from-muted to-transparent z-10" />
+                {/* Right fade */}
+                <div className="pointer-events-none absolute right-0 top-0 h-full w-6 bg-gradient-to-l from-muted to-transparent z-10" />
+
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide py-1 px-1 scroll-smooth">
+                  {SOURCES.map((src, i) => (
+                    <span
+                      key={src}
+                      className={`
+                        shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+                        border transition-all whitespace-nowrap
+                        ${i === activeIdx
+                          ? "bg-blue-600 text-white border-blue-600 ring-2 ring-blue-300 ring-offset-1"
+                          : "bg-background text-muted-foreground border-border opacity-50"
+                        }
+                      `}
+                    >
+                      {i === activeIdx && (
+                        <MapPin className="h-3 w-3 shrink-0" />
+                      )}
+                      {src}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Slider track below chips */}
+              <div className="mt-1 relative h-1.5 rounded-full bg-background">
+                <div
+                  className="absolute h-1.5 rounded-full bg-blue-500 transition-all duration-300"
+                  style={{ width: `${(activeIdx / (SOURCES.length - 1)) * 100}%` }}
+                />
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-blue-600 border-2 border-white transition-all duration-300"
+                  style={{ left: `calc(${(activeIdx / (SOURCES.length - 1)) * 100}% - 7px)` }}
+                />
+              </div>
+
+              {/* Step label */}
+              <div className="flex justify-between text-[10px] text-muted-foreground px-0.5">
+                <span>{SOURCES[0]}</span>
+                <span>{SOURCES[Math.floor(SOURCES.length / 2)]}</span>
+                <span>{SOURCES[SOURCES.length - 1]}</span>
+              </div>
+
+              {/* Active value pill */}
+              {selected.admission_from && (
+                <div className="flex justify-center pt-0.5">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    <MapPin className="h-3 w-3" />
+                    {selected.admission_from}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* ── Fee summary ── */}
+            <div className="p-3 bg-muted rounded-lg space-y-2">
+              <p className="text-sm text-muted-foreground font-medium">Fee Summary</p>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="bg-background rounded-lg p-2">
+                  <p className="text-xs text-muted-foreground">Total Fee</p>
+                  <p className="font-bold text-sm">₹{Number(selected.fee).toLocaleString()}</p>
+                </div>
+                <div className="bg-background rounded-lg p-2">
+                  <p className="text-xs text-muted-foreground">Paid</p>
+                  <p className="font-bold text-sm text-emerald-600">₹{Number(selected.paid_fee).toLocaleString()}</p>
+                </div>
+                <div className="bg-background rounded-lg p-2">
+                  <p className="text-xs text-muted-foreground">Balance</p>
+                  <p className="font-bold text-sm text-red-500">
+                    ₹{(Number(selected.fee) - Number(selected.paid_fee)).toLocaleString()}
                   </p>
                 </div>
-
               </div>
-            )
-          })()}
-        </DialogContent>
-      </Dialog>
+              <div className="w-full bg-muted-foreground/20 rounded-full h-2 mt-1">
+                <div
+                  className="bg-emerald-500 h-2 rounded-full transition-all"
+                  style={{ width: `${Math.min((Number(selected.paid_fee) / (Number(selected.fee) || 1)) * 100, 100)}%` }}
+                />
+              </div>
+              <p className="text-xs text-right text-muted-foreground">
+                {Number(selected.fee) > 0
+                  ? `${Math.round((Number(selected.paid_fee) / Number(selected.fee)) * 100)}% paid`
+                  : "No fee set"}
+              </p>
+            </div>
+
+          </div>
+        )
+      })()}
+    </DialogContent>
+  </Dialog>
 
       {/* ── Update Fee Modal ─────────────────────────────── */}
       <Dialog open={feeModalOpen} onOpenChange={setFeeModalOpen}>
