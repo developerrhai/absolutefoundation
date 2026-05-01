@@ -41,15 +41,15 @@ interface FormData {
   lastExamMarks: string
   collegeName: string
   collegeTiming: string
-  fatherOccupation: string
-  motherOccupation: string
+  // fatherOccupation: string
+  // motherOccupation: string
   address: string
   email: string
   // futurePlans: string
   reference: string
   siblingName: string
   sex: string
-  takingCoaching: string
+  // takingCoaching: string
   // hostelRequired: string
 }
 
@@ -65,15 +65,15 @@ const initial: FormData = {
   lastExamMarks: "",
   collegeName: "",
   collegeTiming: "",
-  fatherOccupation: "",
-  motherOccupation: "",
+  // fatherOccupation: "",
+  // motherOccupation: "",
   address: "",
   email: "",
   // futurePlans: "",
   reference: "",
   siblingName: "",
   sex: "",
-  takingCoaching: "",
+  // takingCoaching: "",
   // hostelRequired: "",
 }
 
@@ -142,13 +142,13 @@ export default function InquiryFormPage() {
   college_name: form.collegeName,
   college_timing: form.collegeTiming,
   last_exam_marks: form.lastExamMarks,
-  father_occupation: form.fatherOccupation,
-  mother_occupation: form.motherOccupation,
+  // father_occupation: form.fatherOccupation,
+  // mother_occupation: form.motherOccupation,
   // future_plans: form.futurePlans,
   reference: form.reference,
   sibling_name: form.siblingName,
   sex: form.sex,
-  taking_coaching: form.takingCoaching,
+  // taking_coaching: form.takingCoaching,
   // hostel_required: form.hostelRequired,
   admin_id: 0,                        // default
   // inquiry_date will default to current date in DB
@@ -361,7 +361,7 @@ export default function InquiryFormPage() {
               {/* STEP 2 — Family & Contact */}
               {step === 2 && (
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Field label="Father's Occupation">
                       <input
                         type="text" placeholder="e.g. Business, Service"
@@ -376,7 +376,7 @@ export default function InquiryFormPage() {
                         className={inputCls}
                       />
                     </Field>
-                  </div>
+                  </div> */}
                   <Field label="Residential Address" required>
                     <textarea
                       placeholder="Full address with area, city, pincode"
@@ -428,7 +428,7 @@ export default function InquiryFormPage() {
                       </select>
                     </Field>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Field label="Taking Coaching Elsewhere?">
                       <select value={form.takingCoaching} onChange={e => set("takingCoaching", e.target.value)} className={selectCls}>
                         <option value="">-- Select --</option>
@@ -436,14 +436,7 @@ export default function InquiryFormPage() {
                         <option value="No">No</option>
                       </select>
                     </Field>
-                    {/* <Field label="Hostel Required?">
-                      <select value={form.hostelRequired} onChange={e => set("hostelRequired", e.target.value)} className={selectCls}>
-                        <option value="">-- Select --</option>
-                        <option value="Yes">Yes</option>
-                        <option value="No">No</option>
-                      </select>
-                    </Field> */}
-                  </div>
+                  </div> */}
 
                   {/* Confirmation notice */}
                   <div className="mt-2 p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20">
