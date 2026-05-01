@@ -468,7 +468,8 @@ export function StudentsContent() {
       </Card>
 
       {/* ── View Modal ───────────────────────────────────── */}
-     <Dialog open={viewOpen} onOpenChange={setViewOpen}>
+     {/* ── View Modal ───────────────────────────────────── */}
+<Dialog open={viewOpen} onOpenChange={setViewOpen}>
   <DialogContent className="sm:max-w-md">
     <DialogHeader>
       <DialogTitle className="flex items-center gap-2">
@@ -495,12 +496,12 @@ export function StudentsContent() {
 
         {/* ── Info rows ── */}
         {[
-          { icon: User,     label: "Name",           value: selected.name },
-          { icon: Phone,    label: "Phone",           value: selected.phone },
-          { icon: User,     label: "Father Name",     value: selected.father_name },
-          { icon: Phone,    label: "Father Phone",    value: selected.father_phone },
-          { icon: BookOpen, label: "Admission Year",  value: selected.admission_year },
-          { icon: User,     label: "Aadhaar Number",  value: selected.adhar_number || "—" },
+          { icon: User,     label: "Name",          value: selected.name },
+          { icon: Phone,    label: "Phone",          value: selected.phone },
+          { icon: User,     label: "Father Name",    value: selected.father_name },
+          { icon: Phone,    label: "Father Phone",   value: selected.father_phone },
+          { icon: BookOpen, label: "Admission Year", value: selected.admission_year },
+          { icon: User,     label: "Aadhaar Number", value: selected.adhar_number || "—" },
         ].map(({ icon: Icon, label, value }) => (
           <div key={label} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
             <Icon className="h-5 w-5 text-muted-foreground shrink-0" />
@@ -510,6 +511,59 @@ export function StudentsContent() {
             </div>
           </div>
         ))}
+
+        {/* ── Admission From slider ── */}
+        {(() => {
+          const SOURCES = [
+            "Walk-in", "Online Ad", "Social Media",
+            "Referral – Friend", "Referral – Parent",
+            "School Visit", "Newspaper Ad", "Banner / Hoarding", "Other",
+          ]
+          const currentIdx = Math.max(0, SOURCES.indexOf(selected.admission_from ?? ""))
+          const pct = (currentIdx / (SOURCES.length - 1)) * 100
+
+          return (
+            <div className="p-3 bg-muted rounded-lg space-y-2">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                <p className="text-sm text-muted-foreground">Admission From</p>
+              </div>
+
+              {selected.admission_from ? (
+                <>
+                  {/* Slider track (read-only visual) */}
+                  <div className="relative h-2 rounded-full bg-background mt-3 mb-1">
+                    <div
+                      className="absolute h-2 rounded-full bg-blue-500 transition-all"
+                      style={{ width: `${pct}%` }}
+                    />
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-blue-600 border-2 border-white shadow-sm transition-all"
+                      style={{ left: `calc(${pct}% - 8px)` }}
+                    />
+                  </div>
+
+                  {/* Tick labels */}
+                  <div className="flex justify-between text-[10px] text-muted-foreground px-0.5">
+                    <span>{SOURCES[0]}</span>
+                    <span>{SOURCES[Math.floor(SOURCES.length / 2)]}</span>
+                    <span>{SOURCES[SOURCES.length - 1]}</span>
+                  </div>
+
+                  {/* Active badge */}
+                  <div className="flex justify-center pt-1">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      <MapPin className="h-3 w-3" />
+                      {selected.admission_from}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm font-medium text-muted-foreground pl-6">—</p>
+              )}
+            </div>
+          )
+        })()}
 
         {/* ── Fee summary ── */}
         <div className="p-3 bg-muted rounded-lg space-y-2">
