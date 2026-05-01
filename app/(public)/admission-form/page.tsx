@@ -264,7 +264,7 @@ export default function AdmissionFormPage() {
                 }
               />
               
-              //profile file type input
+    
               <InputField
                 placeholder="Profile"
                 type="file"
