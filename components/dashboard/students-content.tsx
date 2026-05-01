@@ -14,8 +14,22 @@ import { studentsApi, studentsUniversalApi } from "@/lib/api"
 import * as XLSX from "xlsx"
 
 interface Student {
-  id: number; name: string; phone: string; father_name: string; father_phone: string
-  standard: string; course: string; admission_year: string; fee: number; paid_fee: number
+  id: number
+  name: string
+  phone: string
+  email?: string
+  father_name: string
+  father_phone: string
+  father_occupation?: string
+  standard: string
+  course: string
+  admission_year: string
+  location?: string
+  address?: string
+  adhar_number?: string
+  profile_img?: string
+  fee: number
+  paid_fee: number
 }
 
 // Fee status badge helper
