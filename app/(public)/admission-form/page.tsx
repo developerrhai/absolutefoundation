@@ -14,7 +14,7 @@ const STANDARDS = [
 
 const BRANCHES = ["Chinchwad", "Wakad", "Thergaon"]
 
-const COURSES = ["IIT-JEE", "NEET", "MHT-CET", "Graduation CET"]
+const COURSES = ["PCB", "PCM", "MHT-CET", "Graduation CET", "PCMB"]
 
 interface FormData {
   studentName: string
