@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { Header } from "@/components/ui/header"
 import { useState } from "react"
 
@@ -22,22 +23,19 @@ interface FormData {
   fatherName: string
   fatherPhone: string
   email: string
-  // board: string
   standard: string
-  // branch: string
   course: string
   father_occupation: string
   adhar_number: string
   profile_img: string
   address: string
   admission_year: string
-
 }
 
 const initial: FormData = {
   studentName: "", studentPhone: "", adhar_number: "", profile_img:"", address: "",
-  fatherName: "", fatherPhone: "", father_occupation: "", 
-  email: "",  standard: "", course: "",admission_year: ""
+  fatherName: "", fatherPhone: "", father_occupation: "",
+  email: "",  standard: "", course: "", admission_year: ""
 }
 
 export default function AdmissionFormPage() {
@@ -99,9 +97,7 @@ export default function AdmissionFormPage() {
           profile_img: form.profile_img,
           address: form.address,
           admission_year: form.admission_year,
-          // board:        form.board,
           standard:     form.standard,
-          // location:     form.branch,
           course:       isSenior ? form.course : "",
         }),
       })
@@ -157,9 +153,6 @@ export default function AdmissionFormPage() {
 
         <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
 
-     
-         
-
           <Header/>
 
           {/* Form title */}
@@ -212,7 +205,6 @@ export default function AdmissionFormPage() {
                   </svg>
                 }
               />
-
               <InputField
                 placeholder="Aadhar Number"
                 value={form.adhar_number}
@@ -220,25 +212,11 @@ export default function AdmissionFormPage() {
                 error={fieldError("adhar_number")}
                 icon={
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round" 
-                        strokeWidth={2} 
-                        d="M3 7h18M3 17h18M4 5h16a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V7a2 2 0 012-2z"
-                      />
-                      <circle 
-                        cx="8" 
-                        cy="12" 
-                        r="2" 
-                        strokeWidth={2}
-                      />
-                      <path 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round" 
-                        strokeWidth={2} 
-                        d="M14 11h4M14 14h4"
-                      />
-                    </svg>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M3 7h18M3 17h18M4 5h16a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V7a2 2 0 012-2z" />
+                    <circle cx="8" cy="12" r="2" strokeWidth={2} />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 11h4M14 14h4" />
+                  </svg>
                 }
               />
               <InputField
@@ -248,35 +226,19 @@ export default function AdmissionFormPage() {
                 error={fieldError("address")}
                 icon={
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0L6.343 16.657A8 8 0 1117.657 16.657z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0L6.343 16.657A8 8 0 1117.657 16.657z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 }
               />
-              
-    
-              <InputField
-                placeholder="Profile"
-                type="file"
+
+              {/* ── Passport Photo Upload ── */}
+              <PassportPhotoUpload
                 value={form.profile_img}
                 onChange={v => set("profile_img", v)}
                 error={fieldError("profile_img")}
-                icon={
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                }
               />
             </Section>
 
@@ -313,13 +275,9 @@ export default function AdmissionFormPage() {
                 onChange={v => set("father_occupation", v)}
                 error={fieldError("father_occupation")}
                 icon={
-                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M20 13V8a2 2 0 00-2-2h-3V4a2 2 0 00-2-2H11a2 2 0 00-2 2v2H6a2 2 0 00-2 2v5m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0H4"
-                    />
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M20 13V8a2 2 0 00-2-2h-3V4a2 2 0 00-2-2H11a2 2 0 00-2 2v2H6a2 2 0 00-2 2v5m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0H4" />
                   </svg>
                 }
               />
@@ -327,19 +285,6 @@ export default function AdmissionFormPage() {
 
             {/* Academic Details */}
             <Section label="Academic Details" color="cyan">
-              {/* <SelectField
-                placeholder="Select Board"
-                value={form.board}
-                onChange={v => set("board", v)}
-                options={BOARDS}
-                error={fieldError("board")}
-                icon={
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
-                }
-              /> */}
               <SelectField
                 placeholder="Select Standard"
                 value={form.standard}
@@ -354,7 +299,6 @@ export default function AdmissionFormPage() {
                 }
               />
 
-              {/* Course — only visible for 11th & 12th */}
               {isSenior && (
                 <SelectField
                   placeholder="Select Course"
@@ -370,6 +314,7 @@ export default function AdmissionFormPage() {
                   }
                 />
               )}
+
               <InputField
                 placeholder="Admission Year"
                 value={form.admission_year}
@@ -377,35 +322,12 @@ export default function AdmissionFormPage() {
                 error={fieldError("admission_year")}
                 icon={
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 7V3m8 4V3m-9 8h10M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z"
-                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M8 7V3m8 4V3m-9 8h10M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z" />
                   </svg>
                 }
               />
             </Section>
-
-            {/* Branch */}
-            {/* <Section label="Branch" color="sky">
-              <SelectField
-                placeholder="Select Branch"
-                value={form.branch}
-                onChange={v => set("branch", v)}
-                options={BRANCHES}
-                error={fieldError("branch")}
-                icon={
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                }
-              />
-            </Section> */}
 
             {/* Error */}
             {error && (
@@ -474,6 +396,7 @@ function Section({ label, color, children }: { label: string; color: string; chi
   )
 }
 
+/* ── Input field ────────────────────────────────────── */
 function InputField({
   placeholder,
   type = "text",
@@ -499,33 +422,99 @@ function InputField({
         }`}
       >
         {icon && <span className="text-gray-400 shrink-0">{icon}</span>}
-
         <input
           type={type}
           placeholder={placeholder}
-          {...(type !== "file" ? { value } : {})}
-          onChange={(e) => {
-            if (type === "file") {
-              const file = e.target.files?.[0]
-              if (file) {
-                const reader = new FileReader()
-                reader.onloadend = () => {
-                  onChange(reader.result as string) // base64
-                }
-                reader.readAsDataURL(file)
-              }
-            } else {
-              onChange(e.target.value)
-            }
-          }}
+          value={value}
+          onChange={e => onChange(e.target.value)}
           className="flex-1 bg-transparent text-gray-700 text-sm placeholder-gray-400 outline-none"
         />
+      </div>
+      {error && <p className="text-red-500 text-xs mt-1 ml-1">{error}</p>}
+    </div>
+  )
+}
+
+/* ── Passport Photo Upload ──────────────────────────── */
+function PassportPhotoUpload({
+  value,
+  onChange,
+  error,
+}: {
+  value: string
+  onChange: (v: string) => void
+  error?: string
+}) {
+  const inputRef = React.useRef<HTMLInputElement>(null)
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onloadend = () => onChange(reader.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  return (
+    <div>
+      <div
+        className={`flex items-center gap-3 px-4 py-3 rounded-xl border bg-white transition-all duration-200 ${
+          error
+            ? "border-red-300 bg-red-50/30"
+            : "border-gray-200 hover:border-blue-300 focus-within:border-[#0d6efd] focus-within:ring-3 focus-within:ring-[#0d6efd]/10"
+        }`}
+      >
+        {/* Camera icon */}
+        <span className="text-gray-400 shrink-0">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </span>
+
+        {/* Label */}
+        <span className="flex-1 text-sm truncate">
+          {value
+            ? <span className="text-gray-700 font-medium">Photo selected ✓</span>
+            : <span className="text-gray-400">Upload Passport Size Photo</span>
+          }
+        </span>
+
+        {/* Thumbnail preview */}
+        {value && (
+          <img
+            src={value}
+            alt="Passport preview"
+            className="w-9 h-9 rounded-lg object-cover border border-gray-200 shrink-0"
+          />
+        )}
+
+        {/* Hidden file input */}
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFile}
+        />
+
+        {/* Styled trigger button */}
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="shrink-0 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#0d6efd] to-[#0dcaf0] text-white text-xs font-semibold shadow-sm hover:shadow-blue-200 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-150"
+        >
+          {value ? "Change" : "Upload"}
+        </button>
       </div>
 
       {error && <p className="text-red-500 text-xs mt-1 ml-1">{error}</p>}
     </div>
   )
 }
+
 /* ── Select field ───────────────────────────────────── */
 function SelectField({
   placeholder, value, onChange, options, error, icon
