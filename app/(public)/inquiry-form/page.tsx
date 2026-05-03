@@ -340,14 +340,14 @@ export default function InquiryFormPage() {
                     />
                   </Field>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Field label="College Name">
+                    <Field label="School/College Name">
                       <input
                         type="text" placeholder="College / School name"
                         value={form.collegeName} onChange={e => set("collegeName", e.target.value)}
                         className={inputCls}
                       />
                     </Field>
-                    <Field label="College Timing">
+                    <Field label="School/College Timing">
                       <input
                         type="text" placeholder="e.g. 8AM – 12PM"
                         value={form.collegeTiming} onChange={e => set("collegeTiming", e.target.value)}
