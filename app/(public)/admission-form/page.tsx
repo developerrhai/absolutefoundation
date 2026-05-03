@@ -257,7 +257,7 @@ export default function AdmissionFormPage() {
                 }
               />
               <InputField
-                placeholder="Parents Phone"
+                placeholder="Parent Phone"
                 type="tel"
                 value={form.fatherPhone}
                 onChange={v => set("fatherPhone", v)}
