@@ -245,7 +245,7 @@ export default function AdmissionFormPage() {
             {/* Parent Details */}
             <Section label="Parent Details" color="indigo">
               <InputField
-                placeholder="Father Name"
+                placeholder="Parent Name"
                 value={form.fatherName}
                 onChange={v => set("fatherName", v)}
                 error={fieldError("fatherName")}
@@ -257,7 +257,7 @@ export default function AdmissionFormPage() {
                 }
               />
               <InputField
-                placeholder="Father Phone"
+                placeholder="Parents Phone"
                 type="tel"
                 value={form.fatherPhone}
                 onChange={v => set("fatherPhone", v)}
@@ -270,7 +270,7 @@ export default function AdmissionFormPage() {
                 }
               />
               <InputField
-                placeholder="Father Occupation"
+                placeholder="Parent Occupation"
                 value={form.father_occupation}
                 onChange={v => set("father_occupation", v)}
                 error={fieldError("father_occupation")}
