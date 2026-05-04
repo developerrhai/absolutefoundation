@@ -24,6 +24,7 @@ interface Invoice {
   install_date?: string
   description?: string
   transaction_type?: string
+  student_phone?: string
 }
 
 interface Student {
@@ -44,22 +45,22 @@ type InvoiceStatus = "Paid" | "Partial" | "Pending" | "Overdue"
 
 const getStatus = (inv: Invoice): InvoiceStatus => {
   const amount = Number(inv.amount)
-  const paid   = Number(inv.paid_amount)
+  const paid = Number(inv.paid_amount)
   if (paid >= amount) return "Paid"
-  if (paid > 0)       return "Partial"
+  if (paid > 0) return "Partial"
   if (inv.due_date && new Date(inv.due_date) < new Date()) return "Overdue"
   return "Pending"
 }
 
 const statusColor = (s: string) => ({
-  Paid:    "bg-emerald-100 text-emerald-700",
+  Paid: "bg-emerald-100 text-emerald-700",
   Partial: "bg-yellow-100 text-yellow-700",
   Pending: "bg-blue-100 text-blue-700",
   Overdue: "bg-red-100 text-red-700",
 }[s] ?? "bg-gray-100 text-gray-700")
 
 const statusIcon = (s: string) => ({
-  Paid:    <CheckCircle className="h-4 w-4" />,
+  Paid: <CheckCircle className="h-4 w-4" />,
   Partial: <Clock className="h-4 w-4" />,
   Pending: <Clock className="h-4 w-4" />,
   Overdue: <AlertCircle className="h-4 w-4" />,
@@ -68,32 +69,32 @@ const statusIcon = (s: string) => ({
 const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString() : "—"
 
 export function InvoicesContent() {
-  const [invoices,     setInvoices]     = useState<Invoice[]>([])
-  const [summary,      setSummary]      = useState<Summary>({ total_invoiced: 0, total_paid: 0, total_pending: 0 })
-  const [loading,      setLoading]      = useState(true)
-  const [saving,       setSaving]       = useState(false)
+  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [summary, setSummary] = useState<Summary>({ total_invoiced: 0, total_paid: 0, total_pending: 0 })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [filterStatus, setFilterStatus] = useState("all")
   const [studentFilter, setStudentFilter] = useState("")
-  const [modalOpen,    setModalOpen]    = useState(false)
-  const [viewOpen,     setViewOpen]     = useState(false)
-  const [selected,     setSelected]     = useState<Invoice | null>(null)
-  const [editing,      setEditing]      = useState<Invoice | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [viewOpen, setViewOpen] = useState(false)
+  const [selected, setSelected] = useState<Invoice | null>(null)
+  const [editing, setEditing] = useState<Invoice | null>(null)
 
-  const [students,        setStudents]        = useState<Student[]>([])
-  const [studentSearch,   setStudentSearch]   = useState("")
-  const [showDropdown,    setShowDropdown]    = useState(false)
+  const [students, setStudents] = useState<Student[]>([])
+  const [studentSearch, setStudentSearch] = useState("")
+  const [showDropdown, setShowDropdown] = useState(false)
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [studentsLoading, setStudentsLoading] = useState(false)
 
   const [form, setForm] = useState({
-    student_name:     "",
-    amount:           "",
-    paid_amount:      "",
-    due_date:         "",
-    install_date:     "",
+    student_name: "",
+    amount: "",
+    paid_amount: "",
+    due_date: "",
+    install_date: "",
     transaction_type: "Cash",
-    description:      "",
-    student_id:       "",
+    description: "",
+    student_id: "",
   })
 
   const load = useCallback(async () => {
@@ -140,10 +141,10 @@ export function InvoicesContent() {
     setForm(prev => ({
       ...prev,
       student_name: s.name,
-      student_id:   String(s.id),
-      amount:       remaining > 0 ? String(remaining) : String(s.fee),
-      paid_amount:  "0",
-      description:  `Tuition Fee – ${s.course || s.standard + "th Std"}`,
+      student_id: String(s.id),
+      amount: remaining > 0 ? String(remaining) : String(s.fee),
+      paid_amount: "0",
+      description: `Tuition Fee – ${s.course || s.standard + "th Std"}`,
     }))
   }
 
@@ -177,14 +178,14 @@ export function InvoicesContent() {
     setSaving(true)
     try {
       const payload = {
-        student_name:     form.student_name,
-        student_id:       form.student_id || undefined,
-        amount:           parseFloat(form.amount),
-        paid_amount:      parseFloat(form.paid_amount) || 0,
-        due_date:         form.due_date,
-        install_date:     form.install_date || undefined,
+        student_name: form.student_name,
+        student_id: form.student_id || undefined,
+        amount: parseFloat(form.amount),
+        paid_amount: parseFloat(form.paid_amount) || 0,
+        due_date: form.due_date,
+        install_date: form.install_date || undefined,
         transaction_type: form.transaction_type,
-        description:      form.description,
+        description: form.description,
       }
 
       if (editing) {
@@ -288,46 +289,417 @@ export function InvoicesContent() {
     const w = window.open("", "_blank")
     if (!w) return
     const balance = Number(inv.amount) - Number(inv.paid_amount)
-    w.document.write(`
-    <html>
-    <head>
-      <title>Invoice #${inv.id}</title>
-      <style>
-        body { font-family: Arial, sans-serif; padding: 30px; color: #333; }
-        .container { max-width: 900px; margin: auto; border: 1px solid #ddd; padding: 20px; }
-        .header { display: flex; justify-content: space-between; align-items: flex-start; }
-        .title { color: #ff6b00; font-weight: bold; font-size: 18px; }
-        hr { margin: 15px 0; }
-        .flex { display: flex; justify-content: space-between; margin-top: 10px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        table th, table td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; }
-        .total { font-weight: bold; }
-        .box { width: 48%; }
-        .footer { text-align: right; margin-top: 40px; }
-        .section-title { font-weight: bold; margin-top: 10px; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <div>
-            <h2> DNYANSAGAR CLASSESS</h2>
-            <p>201/A, New Excelsior Building Opp. Crown Hotel, KHADKI Pune - 411003</p>
-            <p>GSTIN: 27AAUCM5976C1ZV</p>
-          </div>
-          <div class="title">INSTITUTE BILL</div>
-        </div>
-        <hr/>
-        <div class="flex">
-          <div><b>Invoice No:</b> INV${String(inv.id).padStart(4, "0")}</div>
-          <div><b>Date:</b> ${new Date().toLocaleDateString()}</div>
-        </div>
+   w.document.write(
+      `
+      <html>
+<head>
+<title>Receipt #${inv.id}</title>
+
+<style>
+
+@page{
+  size:A4;
+  margin:25mm;
+}
+
+body{
+  font-family: Arial, Helvetica, sans-serif;
+  color:#333;
+  margin:0;
+}
+
+.container{
+  width:100%;
+}
+
+.header{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+}
+
+.institute{
+  line-height:1.4;
+}
+
+.institute h2{
+  margin:0;
+  font-size:20px;
+  letter-spacing:0.5px;
+}
+
+.institute p{
+  margin:2px 0;
+  font-size:13px;
+}
+
+.logo{
+  width:70px;
+}
+
+.title{
+  text-align:center;
+  font-size:22px;
+  color:#1f7fa6;
+  font-weight:bold;
+  margin-top:15px;
+  padding-top:10px;
+  border-top:2px solid #1f7fa6;
+}
+
+.content{
+  display:flex;
+  justify-content:space-between;
+  margin-top:25px;
+}
+
+.left{
+  width:48%;
+}
+
+.right{
+  width:48%;
+}
+
+.label{
+  font-weight:bold;
+  margin-top:10px;
+}
+
+.text{
+  margin-top:4px;
+}
+
+.receipt-details{
+  text-align:right;
+  font-size:14px;
+  margin-bottom:15px;
+}
+
+.table{
+  width:100%;
+  border-collapse:collapse;
+}
+
+.table td{
+  padding:6px 0;
+  font-size:14px;
+}
+
+.table td:last-child{
+  text-align:right;
+  font-weight:bold;
+}
+
+.balance{
+  border-top:1px solid #999;
+  padding-top:6px;
+}
+
+.signature{
+  margin-top:70px;
+  text-align:right;
+}
+
+.signature img{
+  height:40px;
+}
+
+.auth{
+  font-weight:bold;
+  margin-top:6px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="header">
+
+<div class="institute">
+<h2>DNYANSAGAR CLASSES</h2>
+<p>201/A, New Excelsior Building Opp. Crown Hotel, KHADKI Pune - 411003 </p>
+<p>Phone no : 8180802049</p>
+
+<p>State: Maharashtra</p>
+</div>
+
+<img class="logo" src="${window.location.origin}/logo.jpeg"/>
+
+</div>
+
+<div class="title">Payment Receipt</div>
+
+<div class="content">
+
+<div class="left">
+
+<div class="label">Received From</div>
+<div class="text">${inv.student_name}</div>
+
+<div class="text">Contact No : ${inv.student_phone || "-"}</div>
+
+<div class="label">Amount in words</div>
+<div class="text">${Number(inv.paid_amount).toLocaleString()} Rupees only</div>
+
+</div>
+
+<div class="right">
+
+<div class="receipt-details">
+<div><b>Receipt Details</b></div>
+
+<div>Receipt No : ${inv.id}</div>
+<div><b>Date :</b> ${fmtDate(inv.install_date)}</div>
+</div>
+
+<table class="table">
+
+<tr>
+<td>Received</td>
+<td>₹ ${Number(inv.paid_amount).toLocaleString()}</td>
+</tr>
+
+<tr>
+<td>Payment mode</td>
+<td>${inv.transaction_type || "Online"}</td>
+</tr>
+
+<tr>
+<td>Previous Balance</td>
+<td>₹ ${Number(inv.amount).toLocaleString()}</td>
+</tr>
+
+<tr class="balance">
+<td>Current Balance</td>
+<td>₹ ${balance}</td>
+</tr>
+
+</table>
+
+</div>
+
+</div>
+
+<div class="signature">
+
+<div>For : DNYANSAGAR CLASSES</div>
+
+<img src="SIGNATURE_IMAGE_URL"/>
+
+<div class="auth">Authorized Signatory</div>
+
+</div>
+
+</div>
+
+</body>
+</html>
+`
+    )
+    w.document.close()
+    w.print()
+  }
+
+
+
+    const handleInvoicePrint = (inv: Invoice | null) => {
+    const w = window.open("", "_blank")
+    if (!w) return
+    const balance = Number(inv?.amount) - Number(inv?.paid_amount)
+   w.document.write(`
+<html>
+<head>
+<title>Invoice #${inv?.id}</title>
+
+<style>
+
+@page{
+  size:A4;
+  margin:20mm;
+}
+
+body{
+  font-family: Arial, Helvetica, sans-serif;
+  margin:0;
+  color:#333;
+}
+
+.container{
+  width:100%;
+}
+
+.header{
+  display:flex;
+  justify-content:space-between;
+  border-bottom:2px solid #1f7fa6;
+  padding-bottom:10px;
+}
+
+.institute h2{
+  margin:0;
+  font-size:20px;
+}
+
+.institute p{
+  margin:2px 0;
+  font-size:13px;
+}
+
+.logo{
+  width:70px;
+}
+
+.title{
+  text-align:center;
+  color:#1f7fa6;
+  font-size:22px;
+  font-weight:bold;
+  margin:15px 0;
+}
+
+.top{
+  display:flex;
+  justify-content:space-between;
+  margin-top:10px;
+}
+
+.bill{
+  font-size:14px;
+}
+
+.invoice-details{
+  
+}
+
+.table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:15px;
+}
+
+.table th{
+
+  padding:8px;
+  font-size:14px;
+}
+
+.table td{
+  border-bottom:1px solid #ddd;
+  padding:8px;
+  font-size:14px;
+}
+
+.table td:last-child,
+.table th:last-child{
+  text-align:right;
+}
+
+.summary{
+  display:flex;
+  justify-content:space-between;
+  margin-top:20px;
+}
+
+.left-summary{
+  width:55%;
+  font-size:14px;
+}
+
+.right-summary{
+  width:40%;
+}
+
+.right-summary table{
+  width:100%;
+  font-size:14px;
+}
+
+.right-summary td{
+  padding:6px 0;
+}
+
+.right-summary td:last-child{
+  text-align:right;
+}
+
+.total{
+ 
+  font-weight:bold;
+  padding:6px;
+}
+
+.footer{
+  display:flex;
+  justify-content:space-between;
+  margin-top:40px;
+}
+
+.bank{
+  font-size:13px;
+}
+
+.qr{
+  width:90px;
+}
+
+.signature{
+  text-align:right;
+}
+
+.signature img{
+  height:40px;
+}
+
+.auth{
+  font-weight:bold;
+  margin-top:5px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="header">
+
+<div class="institute">
+<h2>DNYANSAGAR CLASSES</h2>
+<p>201/A, New Excelsior Building Opp. Crown Hotel, KHADKI Pune - 411003</p>
+<p>Phone : 8180802049</p>
+<p>State : Maharashtra</p>
+</div>
+
+<img class="logo" src="${window.location.origin}/logo.jpeg"/>
+
+</div>
+
+<div class="title">Tax Invoice</div>
+
+<div class="top">
+
+
+
+<div class="invoice-details">
+
+<p><b>Invoice No :</b>  ${inv?.id}</p>
+<p><b>Date : </b> ${fmtDate(inv?.install_date)}</p>
+</div>
+
+</div>
+ 
         <div class="section-title">BILL TO</div>
-        <p><b>Name:</b> ${inv.student_name}</p>
-        <p><b>Student ID:</b> ${inv.student_id || "-"}</p>
-        <p><b>Standard:</b> ${inv.standard || "-"}</p>
-        <p><b>Course:</b> ${inv.course || "-"}</p>
-        <table>
+        <p><b>Name:</b> ${inv?.student_name}</p>
+        <p><b>Student ID:</b> ${inv?.student_id || "-"}</p>
+        <p><b>Standard:</b> ${inv?.standard || "-"}</p>
+        <p><b>Course:</b> ${inv?.course || "-"}</p>
+<table class="table">
           <thead>
             <tr>
               <th>Description</th><th>Course</th><th>Transaction</th>
@@ -336,48 +708,102 @@ export function InvoicesContent() {
           </thead>
           <tbody>
             <tr>
-              <td>${inv.description || "Course Fee"}</td>
-              <td>${inv.course || "-"}</td>
-              <td>${inv.transaction_type || "Cash"}</td>
-              <td>${fmtDate(inv.install_date)}</td>
-              <td>${fmtDate(inv.due_date)}</td>
-              <td>₹${Number(inv.amount).toLocaleString()}</td>
+              <td>${inv?.description || "Course Fee"}</td>
+              <td>${inv?.course || "-"}</td>
+              <td>${inv?.transaction_type || "Cash"}</td>
+              <td>${fmtDate(inv?.install_date)}</td>
+              <td>${fmtDate(inv?.due_date)}</td>
+              <td>₹${Number(inv?.amount).toLocaleString()}</td>
             </tr>
             <tr class="total">
               <td colspan="5">TOTAL</td>
-              <td>₹${Number(inv.amount).toLocaleString()}</td>
+              <td>₹${Number(inv?.amount).toLocaleString()}</td>
             </tr>
           </tbody>
         </table>
-        <div class="flex">
-          <div class="box">
-            <h4>PAYMENT QR CODE</h4>
-            <p>UPI: 8459693282@ybl</p>
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=upi://pay?pa=8459693282@ybl&pn=MeritHome&am=${inv.amount}" />
-          </div>
-          <div class="box">
-            <h4>BANK DETAILS</h4>
-            <p><b>Account Name:</b> DNYANSAGAR CLASSESS</p>
-            <p><b>Bank:</b> HDFC Bank</p>
-            <p><b>Account No:</b> 123456789012</p>
-            <p><b>IFSC:</b> HDFC0001234</p>
-            <p><b>Branch:</b> Chinchwad Pune</p>
-            <p><b>UPI:</b> 8261050815@ybl</p>
-            <br/>
-            <p><b>Total Amount:</b> ₹${inv.amount}</p>
-            <p><b>Received Amount:</b> ₹${inv.paid_amount}</p>
-            <p><b>Balance:</b> ₹${balance}</p>
-            <p>${Number(inv.amount).toLocaleString()} Rupees Only</p>
-          </div>
-        </div>
-        <div class="footer">
-          <p>AUTHORISED SIGNATORY</p>
-          <p><b>DNYANSAGAR CLASSESS</b></p>
-        </div>
-      </div>
-    </body>
-    </html>
-    `)
+
+<div class="summary">
+
+<div class="left-summary">
+
+<b>Invoice Amount In Words</b><br/>
+${Number(inv?.amount).toLocaleString()} Rupees only
+
+<br/><br/>
+
+<b>Terms and Conditions</b><br/>
+FEES ONCE PAID WILL NOT BE REFUNDED IN ANY CASES<br/>
+Thank You!<br/>
+DNYANSAGAR CLASSES
+
+</div>
+
+<div class="right-summary">
+
+<table>
+
+<tr>
+<td>Sub Total</td>
+<td>₹ ${Number(inv?.amount).toLocaleString()}</td>
+</tr>
+
+<tr class="total">
+<td>Total</td>
+<td>₹ </td>
+</tr>
+
+<tr>
+<td>Received</td>
+<td>₹ </td>
+</tr>
+
+<tr>
+<td>Balance</td>
+<td>₹ </td>
+</tr>
+
+<tr>
+<td>Payment mode</td>
+<td>${inv?.transaction_type || "Online"}</td>
+</tr>
+
+</table>
+
+</div>
+
+</div>
+
+<div class="footer">
+
+<div class="bank">
+
+<img class="qr" src="${window.location.origin}/qr.png"/><br/>
+
+<b>Pay To:</b><br/>
+Bank Name : HDFC BANK<br/>
+Account No : 50200066917533<br/>
+IFSC : HDFC0001791<br/>
+Account Name : Vidyaaniketan Professional Academy
+
+</div>
+
+<div class="signature">
+
+<div>For : Vidyaaniketan Professional Academy</div>
+
+<img src="${window.location.origin}/sign.png"/>
+
+<div class="auth">Authorized Signatory</div>
+
+</div>
+
+</div>
+
+</div>
+
+</body>
+</html>
+`)
     w.document.close()
     w.print()
   }
@@ -417,9 +843,9 @@ export function InvoicesContent() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: "Total Invoiced",  value: summary.total_invoiced, cls: "from-blue-500 to-blue-600" },
-          { label: "Total Collected", value: summary.total_paid,     cls: "from-emerald-500 to-emerald-600" },
-          { label: "Pending Amount",  value: summary.total_pending,  cls: "from-amber-500 to-amber-600" },
+          { label: "Total Invoiced", value: summary.total_invoiced, cls: "from-blue-500 to-blue-600" },
+          { label: "Total Collected", value: summary.total_paid, cls: "from-emerald-500 to-emerald-600" },
+          { label: "Pending Amount", value: summary.total_pending, cls: "from-amber-500 to-amber-600" },
         ].map(({ label, value, cls }) => (
           <Card key={label} className={`bg-gradient-to-br ${cls} text-white border-0`}>
             <CardContent className="p-4">
@@ -691,6 +1117,7 @@ export function InvoicesContent() {
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Invoice Details</DialogTitle></DialogHeader>
+          <button onClick={() => handleInvoicePrint(selected)}>Download invoice</button>
           {selected && (() => {
             const status = getStatus(selected)
             return (
@@ -700,14 +1127,14 @@ export function InvoicesContent() {
                   <p className="text-muted-foreground">Invoice #INV{String(selected.id).padStart(3, "0")}</p>
                 </div>
                 {([
-                  ["Student",          selected.student_name],
-                  ["Description",      selected.description],
+                  ["Student", selected.student_name],
+                  ["Description", selected.description],
                   ["Transaction Type", selected.transaction_type],
-                  ["Install Date",     fmtDate(selected.install_date)],
-                  ["Due Date",         fmtDate(selected.due_date)],
-                  ["Total",            `₹${Number(selected.amount).toLocaleString()}`],
-                  ["Paid",             `₹${Number(selected.paid_amount).toLocaleString()}`],
-                  ["Balance",          `₹${(Number(selected.amount) - Number(selected.paid_amount)).toLocaleString()}`],
+                  ["Install Date", fmtDate(selected.install_date)],
+                  ["Due Date", fmtDate(selected.due_date)],
+                  ["Total", `₹${Number(selected.amount).toLocaleString()}`],
+                  ["Paid", `₹${Number(selected.paid_amount).toLocaleString()}`],
+                  ["Balance", `₹${(Number(selected.amount) - Number(selected.paid_amount)).toLocaleString()}`],
                 ] as [string, string | undefined][]).map(([l, v]) => (
                   <div key={l} className="flex justify-between">
                     <span className="text-muted-foreground">{l}:</span>
