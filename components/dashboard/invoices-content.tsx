@@ -791,7 +791,7 @@ Account Name : Vidyaaniketan Professional Academy
 
 <div>For : Vidyaaniketan Professional Academy</div>
 
-<img src="${window.location.origin}/sign.png"/>
+<img src="${window.location.origin}/sign.jpeg"/>
 
 <div class="auth">Authorized Signatory</div>
 
