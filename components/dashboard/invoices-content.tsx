@@ -423,7 +423,7 @@ body{
 <div class="institute">
 <h2>DNYANSAGAR CLASSES</h2>
 <p>201/A, New Excelsior Building Opp. Crown Hotel, KHADKI Pune - 411003 </p>
-<p>Phone no : 8180802049</p>
+<p>Phone no : 8862010906</p>
 
 <p>State: Maharashtra</p>
 </div>
