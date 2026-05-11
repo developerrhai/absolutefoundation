@@ -494,7 +494,7 @@ Account Name : Vidyaaniketan Professional Academy
 </div>
 <div class="signature">
 <div>For : Vidyaaniketan Professional Academy</div>
-<img src="${window.location.origin}/sign.jpeg"/>
+<img src="/sign.jpeg"/>
 <div class="auth">Authorized Signatory</div>
 </div>
 </div>
