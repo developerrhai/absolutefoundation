@@ -66,7 +66,7 @@ export function Sidebar({
       {/* Logo */}
       <div className="flex flex-col items-center p-4 border-b border-slate-700">
         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-slate-900 font-bold text-lg shrink-0">
-          M
+          D
         </div>
         <span className={cn(
           "mt-2 text-amber-400 font-semibold text-sm text-center transition-all duration-300 overflow-hidden whitespace-nowrap",
