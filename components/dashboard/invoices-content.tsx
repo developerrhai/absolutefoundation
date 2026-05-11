@@ -428,7 +428,7 @@ body{
 <p>State: Maharashtra</p>
 </div>
 
-<img class="logo" src="${window.location.origin}/logo.jpeg"/>
+<img class="logo" src="/logo.jpeg" />
 
 </div>
 
