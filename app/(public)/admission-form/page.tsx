@@ -478,7 +478,9 @@ function PassportPhotoUpload({
         <span className="flex-1 text-sm truncate">
           {value
             ? <span className="text-gray-700 font-medium">Photo selected ✓</span>
-            : <span className="text-gray-400">Upload Passport Size Photo</span>
+            : <span className="text-gray-400">Upload Passport Size Photo <span className="text-xs text-red-400 ml-1">
+      (Max 1 MB)
+    </span></span>
           }
         </span>
 
