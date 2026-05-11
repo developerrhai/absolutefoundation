@@ -321,9 +321,9 @@ export function StudentManagementContent() {
           <Table>
             <TableHeader>
               <TableRow className="bg-slate-900 hover:bg-slate-900">
+                <TableHead className="text-white">Sr. No.</TableHead>
                 <TableHead className="text-white">Name</TableHead>
                 <TableHead className="text-white">Phone</TableHead>
-                {/* <TableHead className="text-white">Subject</TableHead> */}
                 <TableHead className="text-white">Marks</TableHead>
                 <TableHead className="text-white">Std</TableHead>
                 <TableHead className="text-white">Board</TableHead>
@@ -335,18 +335,18 @@ export function StudentManagementContent() {
               {filteredStudents.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={8}
+                    colSpan={9}
                     className="py-10 text-center text-sm text-muted-foreground"
                   >
                     No students found for selected filters.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredStudents.map((student) => (
+                filteredStudents.map((student, index) => (
                   <TableRow key={student.id}>
+                    <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                     <TableCell className="font-medium">{student.name}</TableCell>
                     <TableCell>{student.phone}</TableCell>
-                    {/* <TableCell>{student.subject || "—"}</TableCell> */}
                     <TableCell>
                       {student.marks !== undefined ? (
                         <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">

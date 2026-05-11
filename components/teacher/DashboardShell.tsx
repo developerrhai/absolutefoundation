@@ -44,7 +44,7 @@ export function DashboardShell({
 
 
 
-  return (
+  return (  
     <div className="flex min-h-screen w-full bg-background">
       <DashboardSidebar />
       <div className="flex-1 flex flex-col min-w-0">
