@@ -371,7 +371,7 @@ export function StudentsContent() {
                 <TableHeader>
                   <TableRow className="bg-slate-900">
                     {/* ── Sr No. ── */}
-                    <TableHead className="text-white font-semibold w-12">#</TableHead>
+                    <TableHead className="text-white font-semibold w-12">Sr no.</TableHead>
                     <TableHead className="text-white font-semibold">Name</TableHead>
                     <TableHead className="text-white font-semibold hidden sm:table-cell">Phone</TableHead>
                     <TableHead className="text-white font-semibold hidden md:table-cell">Father Name</TableHead>
