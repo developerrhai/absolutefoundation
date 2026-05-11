@@ -851,7 +851,7 @@ Account Name : Vidyaaniketan Professional Academy
                   ["Student", selected.student_name],
                   ["Description", selected.description],
                   ["Transaction Type", selected.transaction_type],
-                  ["Install Date", fmtDate(selected.install_date)],
+                  ["Paid Date", fmtDate(selected.install_date)],
                   ["Due Date", fmtDate(selected.due_date)],
                   ["Total", `₹${Number(selected.amount).toLocaleString()}`],
                   ["Paid", `₹${Number(selected.paid_amount).toLocaleString()}`],
