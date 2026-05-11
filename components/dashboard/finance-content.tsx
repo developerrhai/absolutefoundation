@@ -11,8 +11,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
 } from "@/components/ui/dialog"
-import { Wallet, Users, Receipt, TrendingUp, TrendingDown, Trash2, IndianRupee, Loader2, Pencil } from "lucide-react"
+import { Wallet, Users, Receipt, TrendingUp, TrendingDown, Trash2, IndianRupee, Loader2, Pencil, FileDown } from "lucide-react"
 import { financeApi, teachersApi } from "@/lib/api"
+import * as XLSX from "xlsx"
 
 interface FinanceRecord {
   id: number; type: "Payroll" | "Expense"; name: string
@@ -98,7 +99,6 @@ export function FinanceContent() {
     try { await financeApi.remove(id); load() } catch (err: any) { alert(err.message) }
   }
 
-  // Open the edit modal and pre-fill fields from the selected record
   const openEdit = (r: FinanceRecord) => {
     setEditRecord(r)
     setEditName(r.name)
@@ -161,6 +161,45 @@ export function FinanceContent() {
       )
     : summary
 
+  const exportToExcel = () => {
+    const exportData = filteredRecords.map((r) => ({
+      Type:     r.type,
+      Name:     r.name,
+      Category: r.category,
+      "Amount (₹)": Number(r.amount),
+      Date:     r.record_date?.split("T")[0] ?? "",
+    }))
+
+    const ws = XLSX.utils.json_to_sheet(exportData)
+
+    // Column widths
+    ws["!cols"] = [
+      { wch: 10 }, // Type
+      { wch: 24 }, // Name
+      { wch: 16 }, // Category
+      { wch: 14 }, // Amount
+      { wch: 14 }, // Date
+    ]
+
+    // Summary rows at the bottom
+    const summaryStartRow = exportData.length + 3
+    XLSX.utils.sheet_add_aoa(ws, [
+      [""],
+      ["Summary"],
+      ["Total Payroll",  "", "", Number(filteredSummary.total_payroll)],
+      ["Total Expense",  "", "", Number(filteredSummary.total_expense)],
+      ["Grand Total",    "", "", Number(filteredSummary.grand_total)],
+    ], { origin: { r: summaryStartRow, c: 0 } })
+
+    const wb = XLSX.utils.book_new()
+    const sheetLabel = hasCustomDateFilter
+      ? `${fromDate || "start"}_to_${toDate || "end"}`
+      : filterLabel()
+
+    XLSX.utils.book_append_sheet(wb, ws, sheetLabel.slice(0, 31))
+    XLSX.writeFile(wb, `Finance_Report_${sheetLabel}.xlsx`)
+  }
+
   return (
     <div className="space-y-6 pt-12 lg:pt-0">
       {/* ── Edit Dialog ──────────────────────────────────────── */}
@@ -174,7 +213,6 @@ export function FinanceContent() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Name — teacher dropdown for Payroll, free text for Expense */}
             <div className="space-y-2">
               <Label>{editRecord?.type === "Payroll" ? "Teacher" : "Expense Title"}</Label>
               {editRecord?.type === "Payroll" ? (
@@ -191,7 +229,6 @@ export function FinanceContent() {
               )}
             </div>
 
-            {/* Category — only editable for Expense */}
             {editRecord?.type === "Expense" && (
               <div className="space-y-2">
                 <Label>Type</Label>
@@ -349,10 +386,7 @@ export function FinanceContent() {
                   {(fromDate || toDate) && (
                     <Button
                       variant="ghost"
-                      onClick={() => {
-                        setFromDate("")
-                        setToDate("")
-                      }}
+                      onClick={() => { setFromDate(""); setToDate("") }}
                       className="w-full sm:w-auto"
                     >
                       Clear Dates
@@ -402,44 +436,56 @@ export function FinanceContent() {
 
           {/* Records Table */}
           <div className="mt-6">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
               <h3 className="font-semibold">{filterLabel()} Records</h3>
-              {activeTab !== "report" && (
-                <div className="flex items-center gap-2">
-                  <Select value={timeFilter} onValueChange={setTimeFilter}>
-                    <SelectTrigger className="w-[160px]"><SelectValue/></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="thisMonth">This Month</SelectItem>
-                      <SelectItem value="lastMonth">Last Month</SelectItem>
-                      <SelectItem value="thisYear">This Year</SelectItem>
-                      <SelectItem value="lastYear">Previous Year</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    type="date"
-                    value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                    className="w-[150px]"
-                  />
-                  <Input
-                    type="date"
-                    value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
-                    className="w-[150px]"
-                  />
-                  {(fromDate || toDate) && (
-                    <Button
-                      variant="ghost"
-                      onClick={() => {
-                        setFromDate("")
-                        setToDate("")
-                      }}
-                    >
-                      Clear
-                    </Button>
-                  )}
-                </div>
-              )}
+
+              <div className="flex flex-wrap items-center gap-2">
+                {/* ── Export to Excel button ── */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportToExcel}
+                  disabled={filteredRecords.length === 0}
+                  className="flex items-center gap-2 border-emerald-400 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-500"
+                >
+                  <FileDown className="h-4 w-4" />
+                  <span>Export Excel</span>
+                </Button>
+
+                {activeTab !== "report" && (
+                  <>
+                    <Select value={timeFilter} onValueChange={setTimeFilter}>
+                      <SelectTrigger className="w-[160px]"><SelectValue/></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="thisMonth">This Month</SelectItem>
+                        <SelectItem value="lastMonth">Last Month</SelectItem>
+                        <SelectItem value="thisYear">This Year</SelectItem>
+                        <SelectItem value="lastYear">Previous Year</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="date"
+                      value={fromDate}
+                      onChange={(e) => setFromDate(e.target.value)}
+                      className="w-[150px]"
+                    />
+                    <Input
+                      type="date"
+                      value={toDate}
+                      onChange={(e) => setToDate(e.target.value)}
+                      className="w-[150px]"
+                    />
+                    {(fromDate || toDate) && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => { setFromDate(""); setToDate("") }}
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
 
             {loading ? (
@@ -473,7 +519,6 @@ export function FinanceContent() {
                         <TableCell className="hidden sm:table-cell">{r.record_date?.split("T")[0]}</TableCell>
                         <TableCell>
                           <div className="flex justify-center items-center gap-2">
-                            {/* Edit button */}
                             <Button
                               size="sm"
                               variant="outline"
@@ -483,7 +528,6 @@ export function FinanceContent() {
                             >
                               <Pencil className="h-3.5 w-3.5 text-slate-600" />
                             </Button>
-                            {/* Delete button */}
                             <Button
                               size="sm"
                               variant="destructive"
