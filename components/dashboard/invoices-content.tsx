@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,7 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Receipt, Plus, Eye, Printer, Trash2, CheckCircle, Clock, AlertCircle, Loader2, Search, X, Edit2, FileSpreadsheet, MessageCircle } from "lucide-react"
+import {
+  Receipt, Plus, Eye, Printer, Trash2, CheckCircle, Clock, AlertCircle,
+  Loader2, Search, X, Edit2, FileSpreadsheet, MessageCircle, Upload, Download,
+} from "lucide-react"
 import { invoicesApi, studentsApi } from "@/lib/api"
 
 interface Invoice {
@@ -73,12 +76,14 @@ export function InvoicesContent() {
   const [summary, setSummary] = useState<Summary>({ total_invoiced: 0, total_paid: 0, total_pending: 0 })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [filterStatus, setFilterStatus] = useState("all")
   const [studentFilter, setStudentFilter] = useState("")
   const [modalOpen, setModalOpen] = useState(false)
   const [viewOpen, setViewOpen] = useState(false)
   const [selected, setSelected] = useState<Invoice | null>(null)
   const [editing, setEditing] = useState<Invoice | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [students, setStudents] = useState<Student[]>([])
   const [studentSearch, setStudentSearch] = useState("")
@@ -228,37 +233,18 @@ export function InvoicesContent() {
     setModalOpen(true)
   }
 
+  // ── Export Excel (CSV) ─────────────────────────────────────
   const handleExportExcel = () => {
-    if (!invoices.length) {
-      alert("No invoices to export")
-      return
-    }
-
-    const headers = [
-      "Invoice ID",
-      "Student Name",
-      "Student ID",
-      "Amount",
-      "Paid Amount",
-      "Balance",
-      "Install Date",
-      "Due Date",
-      "Transaction Type",
-      "Status",
-      "Description",
-    ]
-
+    if (!invoices.length) { alert("No invoices to export"); return }
+    const headers = ["Invoice ID","Student Name","Student ID","Amount","Paid Amount","Balance","Install Date","Due Date","Transaction Type","Status","Description"]
     const rows = invoices.map((inv) => {
       const amount = Number(inv.amount || 0)
       const paid = Number(inv.paid_amount || 0)
-      const balance = amount - paid
       return [
         `INV${String(inv.id).padStart(3, "0")}`,
         inv.student_name || "",
         inv.student_id || "",
-        amount,
-        paid,
-        balance,
+        amount, paid, amount - paid,
         inv.install_date ? new Date(inv.install_date).toLocaleDateString("en-CA") : "",
         inv.due_date ? new Date(inv.due_date).toLocaleDateString("en-CA") : "",
         inv.transaction_type || "",
@@ -266,556 +252,265 @@ export function InvoicesContent() {
         inv.description || "",
       ]
     })
-
-    const esc = (value: string | number) => `"${String(value).replace(/"/g, "\"\"")}"`
-    const csv = [headers, ...rows].map((row) => row.map(esc).join(",")).join("\n")
+    const esc = (v: string | number) => `"${String(v).replace(/"/g, "\"\"")}"`
+    const csv = [headers, ...rows].map(r => r.map(esc).join(",")).join("\n")
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" })
-    const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
-    a.href = url
+    a.href = URL.createObjectURL(blob)
     a.download = `invoices_${new Date().toISOString().slice(0, 10)}.csv`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    URL.revokeObjectURL(a.href)
   }
 
+  // ── Download Import Template ───────────────────────────────
+  const downloadTemplate = () => {
+    const headers = ["student_name","amount","paid_amount","install_date","due_date","transaction_type","description"]
+    const sample = ["John Doe","5000","2000","2024-01-15","2024-02-15","Cash","Tuition Fee – January"]
+    const csv = [headers, sample].map(r => r.map(v => `"${v}"`).join(",")).join("\n")
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" })
+    const a = document.createElement("a")
+    a.href = URL.createObjectURL(blob)
+    a.download = "invoice_import_template.csv"
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    URL.revokeObjectURL(a.href)
+  }
+
+  // ── Import CSV ─────────────────────────────────────────────
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImporting(true)
+    try {
+      const text = await file.text()
+      // Split lines and skip the header row
+      const lines = text.split(/\r?\n/).filter(l => l.trim())
+      const [, ...rows] = lines
+      let success = 0, failed = 0
+
+      for (const row of rows) {
+        // Basic CSV parse (handles quoted fields)
+        const cols = row.match(/("(?:[^"]|"")*"|[^,]*)/g)
+          ?.map(c => c.replace(/^"|"$/g, "").replace(/""/g, '"').trim()) ?? []
+
+        const [
+          student_name, amount, paid_amount,
+          install_date, due_date, transaction_type, description,
+        ] = cols
+
+        if (!student_name || !amount || !due_date) { failed++; continue }
+
+        try {
+          await invoicesApi.create({
+            student_name,
+            amount: parseFloat(amount) || 0,
+            paid_amount: parseFloat(paid_amount) || 0,
+            install_date: install_date || undefined,
+            due_date,
+            transaction_type: transaction_type || "Cash",
+            description: description || "",
+          })
+          success++
+        } catch {
+          failed++
+        }
+      }
+
+      alert(`Import complete: ${success} imported, ${failed} failed.`)
+      load()
+    } catch {
+      alert("Failed to read file. Please ensure it is a valid CSV.")
+    } finally {
+      setImporting(false)
+      if (fileInputRef.current) fileInputRef.current.value = ""
+    }
+  }
+
+  // ── Delete ─────────────────────────────────────────────────
   const handleDelete = async (id: number) => {
     if (!confirm("Delete this invoice?")) return
     try { await invoicesApi.remove(id); load() } catch (err: any) { alert(err.message) }
   }
 
+  // ── Print Receipt ──────────────────────────────────────────
   const handlePrint = (inv: Invoice) => {
     const w = window.open("", "_blank")
     if (!w) return
     const balance = Number(inv.amount) - Number(inv.paid_amount)
-   w.document.write(
-      `
-      <html>
-<head>
-<title>Receipt #${inv.id}</title>
-
-<style>
-
-@page{
-  size:A4;
-  margin:25mm;
-}
-
-body{
-  font-family: Arial, Helvetica, sans-serif;
-  color:#333;
-  margin:0;
-}
-
-.container{
-  width:100%;
-}
-
-.header{
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-start;
-}
-
-.institute{
-  line-height:1.4;
-}
-
-.institute h2{
-  margin:0;
-  font-size:20px;
-  letter-spacing:0.5px;
-}
-
-.institute p{
-  margin:2px 0;
-  font-size:13px;
-}
-
-.logo{
-  width:70px;
-}
-
-.title{
-  text-align:center;
-  font-size:22px;
-  color:#1f7fa6;
-  font-weight:bold;
-  margin-top:15px;
-  padding-top:10px;
-  border-top:2px solid #1f7fa6;
-}
-
-.content{
-  display:flex;
-  justify-content:space-between;
-  margin-top:25px;
-}
-
-.left{
-  width:48%;
-}
-
-.right{
-  width:48%;
-}
-
-.label{
-  font-weight:bold;
-  margin-top:10px;
-}
-
-.text{
-  margin-top:4px;
-}
-
-.receipt-details{
-  text-align:right;
-  font-size:14px;
-  margin-bottom:15px;
-}
-
-.table{
-  width:100%;
-  border-collapse:collapse;
-}
-
-.table td{
-  padding:6px 0;
-  font-size:14px;
-}
-
-.table td:last-child{
-  text-align:right;
-  font-weight:bold;
-}
-
-.balance{
-  border-top:1px solid #999;
-  padding-top:6px;
-}
-
-.signature{
-  margin-top:70px;
-  text-align:right;
-}
-
-.signature img{
-  height:40px;
-}
-
-.auth{
-  font-weight:bold;
-  margin-top:6px;
-}
-
-</style>
-
-</head>
-
-<body>
-
+    w.document.write(`
+<html><head><title>Receipt #${inv.id}</title><style>
+@page{size:A4;margin:25mm}
+body{font-family:Arial,Helvetica,sans-serif;color:#333;margin:0}
+.container{width:100%}
+.header{display:flex;justify-content:space-between;align-items:flex-start}
+.institute h2{margin:0;font-size:20px;letter-spacing:0.5px}
+.institute p{margin:2px 0;font-size:13px}
+.logo{width:70px}
+.title{text-align:center;font-size:22px;color:#1f7fa6;font-weight:bold;margin-top:15px;padding-top:10px;border-top:2px solid #1f7fa6}
+.content{display:flex;justify-content:space-between;margin-top:25px}
+.left{width:48%}.right{width:48%}
+.label{font-weight:bold;margin-top:10px}.text{margin-top:4px}
+.receipt-details{text-align:right;font-size:14px;margin-bottom:15px}
+.table{width:100%;border-collapse:collapse}
+.table td{padding:6px 0;font-size:14px}
+.table td:last-child{text-align:right;font-weight:bold}
+.balance{border-top:1px solid #999;padding-top:6px}
+.signature{margin-top:70px;text-align:right}
+.signature img{height:40px}.auth{font-weight:bold;margin-top:6px}
+</style></head><body>
 <div class="container">
-
 <div class="header">
-
-<div class="institute">
-<h2>DNYANSAGAR CLASSES</h2>
-<p>201/A, New Excelsior Building Opp. Crown Hotel, KHADKI Pune - 411003 </p>
-<p>Phone no : 8862010906</p>
-
-<p>State: Maharashtra</p>
-</div>
-
-<img class="logo" src="/logo.jpeg" />
-
-</div>
-
-<div class="title">Payment Receipt</div>
-
-<div class="content">
-
-<div class="left">
-
-<div class="label">Received From</div>
-<div class="text">${inv.student_name}</div>
-
-<div class="text">Contact No : ${inv.student_phone || "-"}</div>
-
-<div class="label">Amount in words</div>
-<div class="text">${Number(inv.paid_amount).toLocaleString()} Rupees only</div>
-
-</div>
-
-<div class="right">
-
-<div class="receipt-details">
-<div><b>Receipt Details</b></div>
-
-<div>Receipt No : ${inv.id}</div>
-<div><b>Date :</b> ${fmtDate(inv.install_date)}</div>
-</div>
-
-<table class="table">
-
-<tr>
-<td>Received</td>
-<td>₹ ${Number(inv.paid_amount).toLocaleString()}</td>
-</tr>
-
-<tr>
-<td>Payment mode</td>
-<td>${inv.transaction_type || "Online"}</td>
-</tr>
-
-<tr>
-<td>Previous Balance</td>
-<td>₹ ${Number(inv.amount).toLocaleString()}</td>
-</tr>
-
-<tr class="balance">
-<td>Current Balance</td>
-<td>₹ ${balance}</td>
-</tr>
-
-</table>
-
-</div>
-
-</div>
-
-<div class="signature">
-
-<div>For : DNYANSAGAR CLASSES</div>
-
-<img src="SIGNATURE_IMAGE_URL"/>
-
-<div class="auth">Authorized Signatory</div>
-
-</div>
-
-</div>
-
-</body>
-</html>
-`
-    )
-    w.document.close()
-    w.print()
-  }
-
-
-
-    const handleInvoicePrint = (inv: Invoice | null) => {
-    const w = window.open("", "_blank")
-    if (!w) return
-    const balance = Number(inv?.amount) - Number(inv?.paid_amount)
-   w.document.write(`
-<html>
-<head>
-<title>Invoice #${inv?.id}</title>
-
-<style>
-
-@page{
-  size:A4;
-  margin:20mm;
-}
-
-body{
-  font-family: Arial, Helvetica, sans-serif;
-  margin:0;
-  color:#333;
-}
-
-.container{
-  width:100%;
-}
-
-.header{
-  display:flex;
-  justify-content:space-between;
-  border-bottom:2px solid #1f7fa6;
-  padding-bottom:10px;
-}
-
-.institute h2{
-  margin:0;
-  font-size:20px;
-}
-
-.institute p{
-  margin:2px 0;
-  font-size:13px;
-}
-
-.logo{
-  width:70px;
-}
-
-.title{
-  text-align:center;
-  color:#1f7fa6;
-  font-size:22px;
-  font-weight:bold;
-  margin:15px 0;
-}
-
-.top{
-  display:flex;
-  justify-content:space-between;
-  margin-top:10px;
-}
-
-.bill{
-  font-size:14px;
-}
-
-.invoice-details{
-  
-}
-
-.table{
-  width:100%;
-  border-collapse:collapse;
-  margin-top:15px;
-}
-
-.table th{
-
-  padding:8px;
-  font-size:14px;
-}
-
-.table td{
-  border-bottom:1px solid #ddd;
-  padding:8px;
-  font-size:14px;
-}
-
-.table td:last-child,
-.table th:last-child{
-  text-align:right;
-}
-
-.summary{
-  display:flex;
-  justify-content:space-between;
-  margin-top:20px;
-}
-
-.left-summary{
-  width:55%;
-  font-size:14px;
-}
-
-.right-summary{
-  width:40%;
-}
-
-.right-summary table{
-  width:100%;
-  font-size:14px;
-}
-
-.right-summary td{
-  padding:6px 0;
-}
-
-.right-summary td:last-child{
-  text-align:right;
-}
-
-.total{
- 
-  font-weight:bold;
-  padding:6px;
-}
-
-.footer{
-  display:flex;
-  justify-content:space-between;
-  margin-top:40px;
-}
-
-.bank{
-  font-size:13px;
-}
-
-.qr{
-  width:90px;
-}
-
-.signature{
-  text-align:right;
-}
-
-.signature img{
-  height:40px;
-}
-
-.auth{
-  font-weight:bold;
-  margin-top:5px;
-}
-
-</style>
-</head>
-
-<body>
-
-<div class="container">
-
-<div class="header">
-
 <div class="institute">
 <h2>DNYANSAGAR CLASSES</h2>
 <p>201/A, New Excelsior Building Opp. Crown Hotel, KHADKI Pune - 411003</p>
-<p>Phone : 8862010906</p>
-<p>State : Maharashtra</p>
+<p>Phone no : 8862010906</p><p>State: Maharashtra</p>
 </div>
-
-<img class="logo" src="${window.location.origin}/logo.jpeg"/>
-
+<img class="logo" src="/logo.jpeg"/>
 </div>
-
-<div class="title">Tax Invoice</div>
-
-<div class="top">
-
-
-
-<div class="invoice-details">
-
-<p><b>Invoice No :</b>  ${inv?.id}</p>
-<p><b>Date : </b> ${fmtDate(inv?.install_date)}</p>
+<div class="title">Payment Receipt</div>
+<div class="content">
+<div class="left">
+<div class="label">Received From</div>
+<div class="text">${inv.student_name}</div>
+<div class="text">Contact No : ${inv.student_phone || "-"}</div>
+<div class="label">Amount in words</div>
+<div class="text">${Number(inv.paid_amount).toLocaleString()} Rupees only</div>
 </div>
-
+<div class="right">
+<div class="receipt-details">
+<div><b>Receipt Details</b></div>
+<div>Receipt No : ${inv.id}</div>
+<div><b>Date :</b> ${fmtDate(inv.install_date)}</div>
 </div>
- 
-        <div class="section-title">BILL TO</div>
-        <p><b>Name:</b> ${inv?.student_name}</p>
-        <p><b>Student ID:</b> ${inv?.student_id || "-"}</p>
-        <p><b>Standard:</b> ${inv?.standard || "-"}</p>
-        <p><b>Course:</b> ${inv?.course || "-"}</p>
 <table class="table">
-          <thead>
-            <tr>
-              <th>Description</th><th>Course</th><th>Transaction</th>
-              <th>Paid Date</th><th>Due Date</th><th>Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>${inv?.description || "Course Fee"}</td>
-              <td>${inv?.course || "-"}</td>
-              <td>${inv?.transaction_type || "Cash"}</td>
-              <td>${fmtDate(inv?.install_date)}</td>
-              <td>${fmtDate(inv?.due_date)}</td>
-              <td>₹${Number(inv?.amount).toLocaleString()}</td>
-            </tr>
-            <tr class="total">
-              <td colspan="5">TOTAL</td>
-              <td>₹${Number(inv?.amount).toLocaleString()}</td>
-            </tr>
-          </tbody>
-        </table>
+<tr><td>Received</td><td>₹ ${Number(inv.paid_amount).toLocaleString()}</td></tr>
+<tr><td>Payment mode</td><td>${inv.transaction_type || "Online"}</td></tr>
+<tr><td>Previous Balance</td><td>₹ ${Number(inv.amount).toLocaleString()}</td></tr>
+<tr class="balance"><td>Current Balance</td><td>₹ ${balance}</td></tr>
+</table>
+</div>
+</div>
+<div class="signature">
+<div>For : DNYANSAGAR CLASSES</div>
+<div class="auth">Authorized Signatory</div>
+</div>
+</div>
+</body></html>`)
+    w.document.close(); w.print()
+  }
 
+  // ── Print Invoice ──────────────────────────────────────────
+  const handleInvoicePrint = (inv: Invoice | null) => {
+    const w = window.open("", "_blank")
+    if (!w) return
+    const balance = Number(inv?.amount) - Number(inv?.paid_amount)
+    w.document.write(`
+<html><head><title>Invoice #${inv?.id}</title><style>
+@page{size:A4;margin:20mm}
+body{font-family:Arial,Helvetica,sans-serif;margin:0;color:#333}
+.container{width:100%}
+.header{display:flex;justify-content:space-between;border-bottom:2px solid #1f7fa6;padding-bottom:10px}
+.institute h2{margin:0;font-size:20px}.institute p{margin:2px 0;font-size:13px}
+.logo{width:70px}
+.title{text-align:center;color:#1f7fa6;font-size:22px;font-weight:bold;margin:15px 0}
+.top{display:flex;justify-content:space-between;margin-top:10px}
+.table{width:100%;border-collapse:collapse;margin-top:15px}
+.table th,.table td{padding:8px;font-size:14px}
+.table td{border-bottom:1px solid #ddd}
+.table td:last-child,.table th:last-child{text-align:right}
+.summary{display:flex;justify-content:space-between;margin-top:20px}
+.left-summary{width:55%;font-size:14px}.right-summary{width:40%}
+.right-summary table{width:100%;font-size:14px}
+.right-summary td{padding:6px 0}.right-summary td:last-child{text-align:right}
+.total{font-weight:bold;padding:6px}
+.footer{display:flex;justify-content:space-between;margin-top:40px}
+.bank{font-size:13px}.qr{width:90px}
+.signature{text-align:right}.signature img{height:40px}
+.auth{font-weight:bold;margin-top:5px}
+</style></head><body>
+<div class="container">
+<div class="header">
+<div class="institute">
+<h2>DNYANSAGAR CLASSES</h2>
+<p>201/A, New Excelsior Building Opp. Crown Hotel, KHADKI Pune - 411003</p>
+<p>Phone : 8862010906</p><p>State : Maharashtra</p>
+</div>
+<img class="logo" src="${window.location.origin}/logo.jpeg"/>
+</div>
+<div class="title">Tax Invoice</div>
+<div class="top">
+<div class="invoice-details">
+<p><b>Invoice No :</b> ${inv?.id}</p>
+<p><b>Date :</b> ${fmtDate(inv?.install_date)}</p>
+</div>
+</div>
+<div class="section-title">BILL TO</div>
+<p><b>Name:</b> ${inv?.student_name}</p>
+<p><b>Student ID:</b> ${inv?.student_id || "-"}</p>
+<p><b>Standard:</b> ${inv?.standard || "-"}</p>
+<p><b>Course:</b> ${inv?.course || "-"}</p>
+<table class="table">
+<thead><tr>
+<th>Description</th><th>Course</th><th>Transaction</th>
+<th>Paid Date</th><th>Due Date</th><th>Amount</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>${inv?.description || "Course Fee"}</td>
+<td>${inv?.course || "-"}</td>
+<td>${inv?.transaction_type || "Cash"}</td>
+<td>${fmtDate(inv?.install_date)}</td>
+<td>${fmtDate(inv?.due_date)}</td>
+<td>₹${Number(inv?.amount).toLocaleString()}</td>
+</tr>
+<tr class="total"><td colspan="5">TOTAL</td><td>₹${Number(inv?.amount).toLocaleString()}</td></tr>
+</tbody>
+</table>
 <div class="summary">
-
 <div class="left-summary">
-
 <b>Invoice Amount In Words</b><br/>
-${Number(inv?.amount).toLocaleString()} Rupees only
-
-<br/><br/>
-
+${Number(inv?.amount).toLocaleString()} Rupees only<br/><br/>
 <b>Terms and Conditions</b><br/>
 FEES ONCE PAID WILL NOT BE REFUNDED IN ANY CASES<br/>
-Thank You!<br/>
-DNYANSAGAR CLASSES
-
+Thank You!<br/>DNYANSAGAR CLASSES
 </div>
-
 <div class="right-summary">
-
 <table>
-
-<tr>
-<td>Sub Total</td>
-<td>₹ ${Number(inv?.amount).toLocaleString()}</td>
-</tr>
-
-<tr class="total">
-<td>Total</td>
-<td>₹ </td>
-</tr>
-
-<tr>
-<td>Received</td>
-<td>₹ </td>
-</tr>
-
-<tr>
-<td>Balance</td>
-<td>₹ </td>
-</tr>
-
-<tr>
-<td>Payment mode</td>
-<td>${inv?.transaction_type || "Online"}</td>
-</tr>
-
+<tr><td>Sub Total</td><td>₹ ${Number(inv?.amount).toLocaleString()}</td></tr>
+<tr class="total"><td>Total</td><td>₹ ${Number(inv?.amount).toLocaleString()}</td></tr>
+<tr><td>Received</td><td>₹ ${Number(inv?.paid_amount).toLocaleString()}</td></tr>
+<tr><td>Balance</td><td>₹ ${balance.toLocaleString()}</td></tr>
+<tr><td>Payment mode</td><td>${inv?.transaction_type || "Online"}</td></tr>
 </table>
-
 </div>
-
 </div>
-
 <div class="footer">
-
 <div class="bank">
-
 <img class="qr" src="${window.location.origin}/qr.png"/><br/>
-
 <b>Pay To:</b><br/>
 Bank Name : HDFC BANK<br/>
 Account No : 50200066917533<br/>
 IFSC : HDFC0001791<br/>
 Account Name : Vidyaaniketan Professional Academy
-
 </div>
-
 <div class="signature">
-
 <div>For : Vidyaaniketan Professional Academy</div>
-
 <img src="${window.location.origin}/sign.jpeg"/>
-
 <div class="auth">Authorized Signatory</div>
-
 </div>
-
 </div>
-
 </div>
-
-</body>
-</html>
-`)
-    w.document.close()
-    w.print()
+</body></html>`)
+    w.document.close(); w.print()
   }
 
+  // ── WhatsApp Share ─────────────────────────────────────────
   const handleWhatsAppShare = (inv: Invoice) => {
     const invoiceNo = `INV${String(inv.id).padStart(3, "0")}`
     const amount = Number(inv.amount || 0)
     const paid = Number(inv.paid_amount || 0)
     const balance = amount - paid
     const message = [
-      "Hello,",
-      "",
+      "Hello,", "",
       `Invoice: ${invoiceNo}`,
       `Student: ${inv.student_name || "-"}`,
       `Course: ${inv.course || "-"}`,
@@ -823,17 +518,14 @@ Account Name : Vidyaaniketan Professional Academy
       `Total Amount: Rs ${amount.toLocaleString()}`,
       `Paid Amount: Rs ${paid.toLocaleString()}`,
       `Balance: Rs ${balance.toLocaleString()}`,
-      "",
-      "Please find your invoice details above.",
+      "", "Please find your invoice details above.",
     ].join("\n")
-
-    const phone = ""
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+    const url = `https://wa.me/?text=${encodeURIComponent(message)}`
     window.open(url, "_blank", "noopener,noreferrer")
   }
 
   const f = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }))
-  const filteredInvoices = invoices.filter((inv) =>
+  const filteredInvoices = invoices.filter(inv =>
     inv.student_name?.toLowerCase().includes(studentFilter.trim().toLowerCase())
   )
 
@@ -861,18 +553,21 @@ Account Name : Vidyaaniketan Professional Academy
           <CardTitle className="flex items-center gap-2 text-xl md:text-2xl">
             <Receipt className="h-6 w-6" /> Invoices
           </CardTitle>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative w-full sm:w-[240px]">
+          <div className="flex flex-wrap gap-2">
+            {/* Search */}
+            <div className="relative w-full sm:w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 value={studentFilter}
                 onChange={(e) => setStudentFilter(e.target.value)}
-                placeholder="Search student name..."
+                placeholder="Search student..."
                 className="pl-9"
               />
             </div>
+
+            {/* Status Filter */}
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-full sm:w-[150px]">
+              <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
@@ -881,9 +576,40 @@ Account Name : Vidyaaniketan Professional Academy
                 ))}
               </SelectContent>
             </Select>
+
+            {/* Export */}
             <Button onClick={handleExportExcel} variant="outline">
-              <FileSpreadsheet className="h-4 w-4 mr-2" /> Export Excel
+              <FileSpreadsheet className="h-4 w-4 mr-2" /> Export
             </Button>
+
+            {/* Import Template Download */}
+            <Button onClick={downloadTemplate} variant="outline" title="Download import template CSV">
+              <Download className="h-4 w-4 mr-2" /> Template
+            </Button>
+
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={handleImport}
+            />
+
+            {/* Import CSV */}
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              variant="outline"
+              disabled={importing}
+              className="border-violet-300 text-violet-700 hover:bg-violet-50"
+            >
+              {importing
+                ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                : <Upload className="h-4 w-4 mr-2" />}
+              {importing ? "Importing…" : "Import CSV"}
+            </Button>
+
+            {/* New Invoice */}
             <Button onClick={openModal} className="bg-emerald-600 hover:bg-emerald-700">
               <Plus className="h-4 w-4 mr-2" /> New Invoice
             </Button>
@@ -904,7 +630,6 @@ Account Name : Vidyaaniketan Professional Academy
                     <TableHead className="text-white font-semibold">Student</TableHead>
                     <TableHead className="text-white font-semibold hidden sm:table-cell">Amount</TableHead>
                     <TableHead className="text-white font-semibold hidden md:table-cell">Paid</TableHead>
-                    {/* ── NEW column ── */}
                     <TableHead className="text-white font-semibold hidden lg:table-cell">Install Date</TableHead>
                     <TableHead className="text-white font-semibold hidden lg:table-cell">Due Date</TableHead>
                     <TableHead className="text-white font-semibold">Status</TableHead>
@@ -926,10 +651,7 @@ Account Name : Vidyaaniketan Professional Academy
                         <TableCell>{inv.student_name}</TableCell>
                         <TableCell className="hidden sm:table-cell">₹{Number(inv.amount).toLocaleString()}</TableCell>
                         <TableCell className="hidden md:table-cell">₹{Number(inv.paid_amount).toLocaleString()}</TableCell>
-                        {/* ── NEW cell ── */}
-                        <TableCell className="hidden lg:table-cell text-muted-foreground">
-                          {fmtDate(inv.install_date)}
-                        </TableCell>
+                        <TableCell className="hidden lg:table-cell text-muted-foreground">{fmtDate(inv.install_date)}</TableCell>
                         <TableCell className="hidden lg:table-cell">{fmtDate(inv.due_date)}</TableCell>
                         <TableCell>
                           <Badge className={`${statusColor(status)} flex items-center gap-1 w-fit`}>
@@ -970,7 +692,7 @@ Account Name : Vidyaaniketan Professional Academy
         </CardContent>
       </Card>
 
-      {/* ── Create Invoice Modal ─────────────────────────────── */}
+      {/* ── Create / Edit Invoice Modal ───────────────────────── */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -978,7 +700,6 @@ Account Name : Vidyaaniketan Professional Academy
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-
             {/* Student Search */}
             <div className="space-y-2">
               <Label>Student <span className="text-destructive">*</span></Label>
@@ -1123,7 +844,7 @@ Account Name : Vidyaaniketan Professional Academy
             return (
               <div className="space-y-3">
                 <div className="text-center pb-4 border-b">
-                  <h3 className="text-lg font-bold text-blue-600">DNYANSAGAR CLASSESS</h3>
+                  <h3 className="text-lg font-bold text-blue-600">DNYANSAGAR CLASSES</h3>
                   <p className="text-muted-foreground">Invoice #INV{String(selected.id).padStart(3, "0")}</p>
                 </div>
                 {([
