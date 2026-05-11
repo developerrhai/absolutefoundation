@@ -703,7 +703,7 @@ body{
           <thead>
             <tr>
               <th>Description</th><th>Course</th><th>Transaction</th>
-              <th>Install Date</th><th>Due Date</th><th>Amount</th>
+              <th>Paid Date</th><th>Due Date</th><th>Amount</th>
             </tr>
           </thead>
           <tbody>
