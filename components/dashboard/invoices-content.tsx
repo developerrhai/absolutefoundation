@@ -630,7 +630,7 @@ Account Name : Vidyaaniketan Professional Academy
                     <TableHead className="text-white font-semibold">Student</TableHead>
                     <TableHead className="text-white font-semibold hidden sm:table-cell">Amount</TableHead>
                     <TableHead className="text-white font-semibold hidden md:table-cell">Paid</TableHead>
-                    <TableHead className="text-white font-semibold hidden lg:table-cell">Install Date</TableHead>
+                    <TableHead className="text-white font-semibold hidden lg:table-cell">Paid Date</TableHead>
                     <TableHead className="text-white font-semibold hidden lg:table-cell">Due Date</TableHead>
                     <TableHead className="text-white font-semibold">Status</TableHead>
                     <TableHead className="text-white font-semibold text-center">Actions</TableHead>
@@ -796,7 +796,7 @@ Account Name : Vidyaaniketan Professional Academy
             {/* Installment Date + Transaction Type */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Installment Date</Label>
+                <Label>Paid Date</Label>
                 <Input type="date" value={form.install_date} onChange={e => f("install_date", e.target.value)} />
               </div>
               <div className="space-y-2">
