@@ -341,6 +341,7 @@ export function InvoicesContent() {
 @page{size:A4;margin:25mm}
 .signature img {
   height: 40px;
+  margin-right:20%;
 }
 
 body{font-family:Arial,Helvetica,sans-serif;color:#333;margin:0}
