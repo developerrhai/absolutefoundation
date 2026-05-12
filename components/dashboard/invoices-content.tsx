@@ -339,6 +339,10 @@ export function InvoicesContent() {
     w.document.write(`
 <html><head><title>Receipt #${inv.id}</title><style>
 @page{size:A4;margin:25mm}
+.signature img {
+  height: 40px;
+  border: 1px solid red; /* remove after confirming it loads */
+}
 body{font-family:Arial,Helvetica,sans-serif;color:#333;margin:0}
 .container{width:100%}
 .header{display:flex;justify-content:space-between;align-items:flex-start}
