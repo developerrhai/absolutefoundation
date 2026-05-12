@@ -65,7 +65,7 @@ export function DashboardShell({
               className="h-9 w-9 rounded-full grid place-items-center text-sm font-semibold text-primary-foreground ring-2 ring-primary/20"
               style={{ background: "var(--gradient-primary)" }}
             >
-              V
+              D
             </div>
           </div>
         </header>
