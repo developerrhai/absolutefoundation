@@ -395,7 +395,7 @@ body{font-family:Arial,Helvetica,sans-serif;color:#333;margin:0}
 </div>
 <div class="signature">
 <div>For : DNYANSAGAR CLASSES</div>
-<img src="${window.location.origin}/sign.jepg" style="height:60px;margin:8px auto;display:block"/>
+<img src="${window.location.origin}/sign.jpeg" style="height:60px;margin:8px 0;display:block;margin-left:auto"/>
 <div class="auth">Authorized Signatory</div>
 </div>
 </div>
