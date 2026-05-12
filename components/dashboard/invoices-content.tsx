@@ -343,7 +343,7 @@ export function InvoicesContent() {
   height: 40px;
   border: 1px solid red; /* remove after confirming it loads */
 }
-  
+
 body{font-family:Arial,Helvetica,sans-serif;color:#333;margin:0}
 .container{width:100%}
 .header{display:flex;justify-content:space-between;align-items:flex-start}
@@ -396,6 +396,7 @@ body{font-family:Arial,Helvetica,sans-serif;color:#333;margin:0}
 </div>
 <div class="signature">
 <div>For : DNYANSAGAR CLASSES</div>
+<img src="${window.location.origin}/sign.jepg" style="height:60px;margin:8px 0;display:block;margin-left:auto"/>
 <div class="auth">Authorized Signatory</div>
 </div>
 </div>
