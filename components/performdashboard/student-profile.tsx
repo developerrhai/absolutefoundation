@@ -22,7 +22,7 @@ export function StudentProfile({
     <div className="flex items-center gap-4">
       <div className="relative h-20 w-20 overflow-hidden rounded-full bg-gradient-to-br from-sky-100 to-sky-200 flex items-center justify-center shadow-md">
         <Image
-          src="/student-avatar.svg"
+          src="/student-avatar.png"
           alt={name}
           width={80}
           height={80}
