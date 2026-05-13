@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./styles.css";
 
 export const metadata: Metadata = {
-  title: "Mirit Home",
+  title: "Dnyansagar Classes - Teacher Dashboard",
   description: "Teacher management dashboard",
 };
 
