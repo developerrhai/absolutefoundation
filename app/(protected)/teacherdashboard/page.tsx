@@ -58,7 +58,7 @@ export default function HomePage() {
       </section>
 
       {/* STATS */}
-      <div className="grid sm:grid-cols-3 gap-6 mt-10">
+      {/* <div className="grid sm:grid-cols-3 gap-6 mt-10">
         {stats.map((s) => (
           <div
             key={s.label}
@@ -78,10 +78,10 @@ export default function HomePage() {
             </div>
           </div>
         ))}
-      </div>
+      </div> */}
 
       {/* TEACHERS LIST */}
-      <div className="mt-10 rounded-2xl bg-card border border-border/70 p-7 shadow-[var(--shadow-soft)]">
+      {/* <div className="mt-10 rounded-2xl bg-card border border-border/70 p-7 shadow-[var(--shadow-soft)]">
         
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -126,7 +126,7 @@ export default function HomePage() {
             </li>
           ))}
         </ul>
-      </div>
+      </div> */}
 
       {/* BOTTOM CARDS */}
       <div className="mt-10 grid md:grid-cols-2 gap-6">
