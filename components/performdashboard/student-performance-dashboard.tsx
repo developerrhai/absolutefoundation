@@ -3,15 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, GraduationCap, Download, Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button } from "../../../../components/ui/button";
-import { StudentProfile } from "../../../../components/performdashboard/student-profile";
-import { StatsCard } from "../../../../components/performdashboard/stats-card";
-import { PerformanceChart } from "../../../../components/performdashboard/performance-chart";
-import { SubjectMarksChart } from "../../../../components/performdashboard/subject-marks-chart";
-import { PerformanceInsights } from "../../../../components/performdashboard/insights-card";
-import { DetailedAnalysis } from "../../../../components/performdashboard/detailed-analysis";
-import { studentData } from "../../../../lib/student-data";
-import { studentsUniversalApi, teacherStudentAssessmentsApi } from "../../../../lib/api";
+import { Button } from "../ui/button";
+import { StudentProfile } from "../performdashboard/student-profile";
+import { StatsCard } from "../performdashboard/stats-card";
+import { PerformanceChart } from "../performdashboard/performance-chart";
+import { SubjectMarksChart } from "../performdashboard/subject-marks-chart";
+import { PerformanceInsights } from "../performdashboard/insights-card";
+import { DetailedAnalysis } from "../performdashboard/detailed-analysis";
+import { studentData } from "../../lib/student-data";
+import { studentsUniversalApi, teacherStudentAssessmentsApi } from "../../lib/api";
 
 type Student = {
   id: number;
