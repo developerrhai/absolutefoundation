@@ -14,6 +14,10 @@ import {
   FileJson,
   FileText,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/teacher/ui/input";
@@ -99,7 +103,6 @@ function parseCSV(text: string): Record<string, string>[] {
   if (lines.length < 2) return [];
   const headers = lines[0].split(",").map((h) => h.trim());
   return lines.slice(1).map((line) => {
-    // simple CSV parse (handles quoted fields)
     const values: string[] = [];
     let cur = "";
     let inQuotes = false;
@@ -172,6 +175,143 @@ function DropdownMenu({
   );
 }
 
+// ─── Pagination component ─────────────────────────────────────────────────────
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+
+function Pagination({
+  total,
+  page,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  total: number;
+  page: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
+
+  // Build page number windows: always show first, last, current ±1
+  const pageNumbers = useMemo(() => {
+    const pages = new Set<number>();
+    pages.add(1);
+    pages.add(totalPages);
+    for (let p = Math.max(1, page - 1); p <= Math.min(totalPages, page + 1); p++) {
+      pages.add(p);
+    }
+    const sorted = Array.from(pages).sort((a, b) => a - b);
+    // Insert ellipsis markers (-1) where gaps exist
+    const result: number[] = [];
+    for (let i = 0; i < sorted.length; i++) {
+      if (i > 0 && sorted[i] - sorted[i - 1] > 1) result.push(-1);
+      result.push(sorted[i]);
+    }
+    return result;
+  }, [page, totalPages]);
+
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-1 pt-4 pb-1">
+      {/* Left: count + rows-per-page */}
+      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+        <span>
+          {total === 0 ? "No results" : `${from}–${to} of ${total}`}
+        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="hidden sm:inline">Rows per page</span>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(v) => { onPageSizeChange(Number(v)); onPageChange(1); }}
+          >
+            <SelectTrigger className="h-8 w-[70px] rounded-full text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((s) => (
+                <SelectItem key={s} value={String(s)}>{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Right: page buttons */}
+      <div className="flex items-center gap-1">
+        {/* First */}
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 rounded-full"
+          disabled={page === 1}
+          onClick={() => onPageChange(1)}
+          title="First page"
+        >
+          <ChevronsLeft className="h-3.5 w-3.5" />
+        </Button>
+
+        {/* Prev */}
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 rounded-full"
+          disabled={page === 1}
+          onClick={() => onPageChange(page - 1)}
+          title="Previous page"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+        </Button>
+
+        {/* Page numbers */}
+        {pageNumbers.map((p, i) =>
+          p === -1 ? (
+            <span key={`ellipsis-${i}`} className="px-1 text-sm text-muted-foreground select-none">
+              …
+            </span>
+          ) : (
+            <Button
+              key={p}
+              variant={p === page ? "default" : "outline"}
+              size="icon"
+              className="h-8 w-8 rounded-full text-xs"
+              onClick={() => onPageChange(p)}
+            >
+              {p}
+            </Button>
+          )
+        )}
+
+        {/* Next */}
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 rounded-full"
+          disabled={page === totalPages}
+          onClick={() => onPageChange(page + 1)}
+          title="Next page"
+        >
+          <ChevronRight className="h-3.5 w-3.5" />
+        </Button>
+
+        {/* Last */}
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 rounded-full"
+          disabled={page === totalPages}
+          onClick={() => onPageChange(totalPages)}
+          title="Last page"
+        >
+          <ChevronsRight className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function StudentManagementContent() {
@@ -195,6 +335,10 @@ export function StudentManagementContent() {
     examination: "",
     exam_date: "",
   });
+
+  // ── Pagination state ────────────────────────────────────────────────────────
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Import state
   const [importOpen, setImportOpen] = useState(false);
@@ -274,6 +418,17 @@ export function StudentManagementContent() {
     });
   }, [students, searchTerm, standardFilter, boardFilter, locationFilter]);
 
+  // Reset to page 1 whenever filters change
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, standardFilter, boardFilter, locationFilter]);
+
+  // Slice for current page
+  const paginatedStudents = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredStudents.slice(start, start + pageSize);
+  }, [filteredStudents, page, pageSize]);
+
   // ── Export ────────────────────────────────────────────────────────────────
 
   const exportCSV = () => {
@@ -351,7 +506,6 @@ export function StudentManagementContent() {
     if (importPreview.length === 0) return;
     setImporting(true);
     try {
-      // Merge imported students into local state (by id; add if missing)
       setStudents((prev) => {
         const map = new Map(prev.map((s) => [s.id, s]));
         for (const s of importPreview) {
@@ -359,7 +513,6 @@ export function StudentManagementContent() {
         }
         return Array.from(map.values());
       });
-      // TODO: optionally call API to persist imported students
       setImportOpen(false);
       setImportFile(null);
       setImportPreview([]);
@@ -371,7 +524,7 @@ export function StudentManagementContent() {
     }
   };
 
-  // ── View / Edit / Delete (unchanged logic) ───────────────────────────────
+  // ── View / Edit / Delete ─────────────────────────────────────────────────
 
   const openView = async (student: Student) => {
     setSelectedStudent(student);
@@ -485,9 +638,7 @@ export function StudentManagementContent() {
           <h2>Students Management</h2>
         </div>
 
-        {/* Export / Import buttons */}
         <div className="flex items-center gap-2">
-          {/* Export dropdown */}
           <DropdownMenu
             trigger={
               <Button variant="outline" className="h-9 rounded-full gap-1.5 text-sm">
@@ -510,7 +661,6 @@ export function StudentManagementContent() {
             ]}
           />
 
-          {/* Import button */}
           <Button
             className="h-9 rounded-full gap-1.5 text-sm"
             onClick={() => {
@@ -596,14 +746,14 @@ export function StudentManagementContent() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredStudents.length === 0 ? (
+              {paginatedStudents.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
                     No students found for selected filters.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredStudents.map((student) => (
+                paginatedStudents.map((student) => (
                   <TableRow key={student.id}>
                     <TableCell className="font-medium">{student.name}</TableCell>
                     <TableCell>{student.phone}</TableCell>
@@ -640,6 +790,17 @@ export function StudentManagementContent() {
           </Table>
         )}
       </div>
+
+      {/* Pagination */}
+      {!loading && filteredStudents.length > 0 && (
+        <Pagination
+          total={filteredStudents.length}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
+      )}
 
       {/* ── View Dialog ─────────────────────────────────────────────────── */}
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
@@ -762,14 +923,12 @@ export function StudentManagementContent() {
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Format hint */}
             <div className="rounded-lg bg-muted/60 p-3 text-sm text-muted-foreground space-y-1">
               <p className="font-medium text-foreground">Supported formats: CSV &amp; JSON</p>
               <p>CSV columns: <code className="text-xs bg-background rounded px-1">id, name, phone, father_phone, subject, marks, examination, exam_date, standard, board, location</code></p>
               <p>JSON: array of objects with the same keys.</p>
             </div>
 
-            {/* File picker */}
             <div
               className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border p-8 cursor-pointer hover:bg-muted/40 transition-colors"
               onClick={() => fileInputRef.current?.click()}
@@ -791,12 +950,10 @@ export function StudentManagementContent() {
               />
             </div>
 
-            {/* Error */}
             {importError && (
               <p className="text-sm text-red-500 rounded-lg bg-red-50 px-3 py-2">{importError}</p>
             )}
 
-            {/* Preview */}
             {importPreview.length > 0 && (
               <div className="space-y-2">
                 <p className="text-sm font-medium">
