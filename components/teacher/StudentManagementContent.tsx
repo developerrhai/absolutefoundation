@@ -354,11 +354,18 @@ export function StudentManagementContent() {
 
   // Import state
   const [importOpen, setImportOpen] = useState(false);
+  const [importMode, setImportMode] = useState<"students" | "marks">("students");
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [importFormat, setImportFormat] = useState<"csv" | "json">("csv");
+  const [importFormat, setImportFormat] = useState<"csv" | "json" | "xlsx">("csv");
   const [importPreview, setImportPreview] = useState<Student[]>([]);
   const [importError, setImportError] = useState("");
   const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
+  // Excel marks-only rows: { student_id, subject, marks, examination, exam_date }
+  const [xlsxMarksRows, setXlsxMarksRows] = useState<Array<{
+    student_id: number; studentName: string; subject: string;
+    marks: number; examination: string; exam_date: string;
+  }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -455,14 +462,62 @@ export function StudentManagementContent() {
 
   // ── Import ────────────────────────────────────────────────────────────────
 
-  const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setImportFile(file);
     setImportError("");
     setImportPreview([]);
+    setXlsxMarksRows([]);
 
     const ext = file.name.split(".").pop()?.toLowerCase();
+
+    // ── Excel / XLSX: marks-only mode ──────────────────────────────────────
+    if (ext === "xlsx" || ext === "xls") {
+      setImportFormat("xlsx");
+      setImportMode("marks");
+      try {
+        const XLSX = await import("xlsx");
+        const buffer = await file.arrayBuffer();
+        const wb = XLSX.read(buffer, { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+        if (rows.length === 0) throw new Error("No data rows found in Excel file.");
+
+        // Validate required columns
+        const firstRow = rows[0];
+        if (!("student_id" in firstRow) || !("marks" in firstRow)) {
+          throw new Error("Excel must have at least 'student_id' and 'marks' columns.");
+        }
+
+        // Build student lookup map for display names
+        const studentMap = new Map(students.map((s) => [s.id, s.name]));
+
+        const today = new Date().toISOString().split("T")[0];
+        const parsed = rows
+          .filter((r) => r.student_id !== "" && r.marks !== "")
+          .map((r) => ({
+            student_id: Number(r.student_id),
+            studentName: studentMap.get(Number(r.student_id)) || String(r.student_id),
+            subject: r.subject || "",
+            marks: Number(r.marks),
+            examination: r.examination || "",
+            exam_date: r.exam_date ? String(r.exam_date).split("T")[0] : today,
+          }))
+          .filter((r) => !Number.isNaN(r.student_id) && !Number.isNaN(r.marks));
+
+        if (parsed.length === 0) throw new Error("No valid rows found. Check student_id and marks columns.");
+        setXlsxMarksRows(parsed);
+      } catch (err: any) {
+        setImportError(err.message || "Failed to parse Excel file.");
+        setXlsxMarksRows([]);
+      }
+      return;
+    }
+
+    // ── CSV / JSON: full student import ───────────────────────────────────
+    setImportMode("students");
     const fmt: "csv" | "json" = ext === "json" ? "json" : "csv";
     setImportFormat(fmt);
 
@@ -515,6 +570,51 @@ export function StudentManagementContent() {
   };
 
   const confirmImport = async () => {
+    // ── Excel marks import: call API for each row ──────────────────────────
+    if (importMode === "marks") {
+      if (xlsxMarksRows.length === 0) return;
+      setImporting(true);
+      setImportProgress({ done: 0, total: xlsxMarksRows.length });
+      let done = 0;
+      const errors: string[] = [];
+
+      for (const row of xlsxMarksRows) {
+        try {
+          await teacherStudentAssessmentsApi.createByStudent(row.student_id, {
+            subject: row.subject,
+            marks: row.marks,
+            examination: row.examination,
+            exam_date: row.exam_date,
+          });
+          // Update local state
+          setStudents((prev) =>
+            prev.map((s) =>
+              s.id === row.student_id
+                ? { ...s, subject: row.subject, marks: row.marks, examination: row.examination, exam_date: row.exam_date }
+                : s
+            )
+          );
+        } catch (err: any) {
+          errors.push(`Student ${row.student_id}: ${err.message || "failed"}`);
+        }
+        done++;
+        setImportProgress({ done, total: xlsxMarksRows.length });
+      }
+
+      setImporting(false);
+      setImportProgress(null);
+      if (errors.length > 0) {
+        setImportError(`${errors.length} row(s) failed:\n${errors.slice(0, 3).join("\n")}`);
+      } else {
+        setImportOpen(false);
+        setImportFile(null);
+        setXlsxMarksRows([]);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+      return;
+    }
+
+    // ── CSV / JSON student import: local state only ────────────────────────
     if (importPreview.length === 0) return;
     setImporting(true);
     try {
@@ -1002,21 +1102,29 @@ export function StudentManagementContent() {
 
       {/* ── Import Dialog ────────────────────────────────────────────────── */}
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Upload className="h-5 w-5" />
-              Import Students
+              Import
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-4 flex-1 overflow-y-auto pr-1">
+            {/* Format hint */}
             <div className="rounded-lg bg-muted/60 p-3 text-sm text-muted-foreground space-y-1">
-              <p className="font-medium text-foreground">Supported formats: CSV &amp; JSON</p>
-              <p>CSV columns: <code className="text-xs bg-background rounded px-1">id, name, phone, father_phone, subject, marks, examination, exam_date, standard, board, location</code></p>
-              <p>JSON: array of objects with the same keys.</p>
+              <p className="font-medium text-foreground">Supported formats: CSV, JSON &amp; Excel (.xlsx)</p>
+              <p>
+                <span className="font-medium text-foreground">Excel (bulk marks):</span>{" "}
+                columns <code className="text-xs bg-background rounded px-1">student_id, marks, subject, examination, exam_date</code> — saves marks to backend via API.
+              </p>
+              <p>
+                <span className="font-medium text-foreground">CSV / JSON (students):</span>{" "}
+                columns <code className="text-xs bg-background rounded px-1">id, name, phone, standard, board, location …</code>
+              </p>
             </div>
 
+            {/* File drop zone */}
             <div
               className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border p-8 cursor-pointer hover:bg-muted/40 transition-colors"
               onClick={() => fileInputRef.current?.click()}
@@ -1024,25 +1132,77 @@ export function StudentManagementContent() {
               <div className="flex gap-3">
                 <FileText className="h-8 w-8 text-emerald-500" />
                 <FileJson className="h-8 w-8 text-blue-500" />
+                <svg className="h-8 w-8 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/><path d="m6 13 2 2 4-4"/>
+                </svg>
               </div>
-              <p className="text-sm font-medium">Click to choose a CSV or JSON file</p>
+              <p className="text-sm font-medium">Click to choose CSV, JSON or Excel file</p>
               {importFile && (
-                <p className="text-xs text-muted-foreground">{importFile.name}</p>
+                <p className="text-xs text-muted-foreground font-medium">{importFile.name}</p>
               )}
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv,.json"
+                accept=".csv,.json,.xlsx,.xls"
                 className="hidden"
                 onChange={handleImportFileChange}
               />
             </div>
 
+            {/* Error */}
             {importError && (
-              <p className="text-sm text-red-500 rounded-lg bg-red-50 px-3 py-2">{importError}</p>
+              <p className="text-sm text-red-500 rounded-lg bg-red-50 px-3 py-2 whitespace-pre-line">{importError}</p>
             )}
 
-            {importPreview.length > 0 && (
+            {/* Excel marks preview */}
+            {importMode === "marks" && xlsxMarksRows.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+                    Excel — Bulk Marks
+                  </span>
+                  <p className="text-sm font-medium">{xlsxMarksRows.length} row{xlsxMarksRows.length !== 1 ? "s" : ""} found</p>
+                </div>
+                <div className="rounded-xl border border-border overflow-auto max-h-56">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Student ID</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Subject</TableHead>
+                        <TableHead>Examination</TableHead>
+                        <TableHead>Marks</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {xlsxMarksRows.slice(0, 10).map((r, i) => (
+                        <TableRow key={i}>
+                          <TableCell>{r.student_id}</TableCell>
+                          <TableCell>{r.studentName}</TableCell>
+                          <TableCell>{r.subject || "—"}</TableCell>
+                          <TableCell>{r.examination || "—"}</TableCell>
+                          <TableCell>
+                            <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-700">{r.marks}</span>
+                          </TableCell>
+                          <TableCell>{r.exam_date || "—"}</TableCell>
+                        </TableRow>
+                      ))}
+                      {xlsxMarksRows.length > 10 && (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center text-xs text-muted-foreground py-2">
+                            …and {xlsxMarksRows.length - 10} more
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+
+            {/* CSV/JSON student preview */}
+            {importMode === "students" && importPreview.length > 0 && (
               <div className="space-y-2">
                 <p className="text-sm font-medium">
                   Preview — {importPreview.length} student{importPreview.length !== 1 ? "s" : ""} found
@@ -1082,16 +1242,34 @@ export function StudentManagementContent() {
                 </div>
               </div>
             )}
+
+            {/* Progress bar (during Excel save) */}
+            {importProgress && (
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Saving marks…</span>
+                  <span>{importProgress.done} / {importProgress.total}</span>
+                </div>
+                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full bg-green-500 transition-all duration-300"
+                    style={{ width: `${(importProgress.done / importProgress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setImportOpen(false)}>Cancel</Button>
+          <DialogFooter className="pt-2">
+            <Button variant="outline" onClick={() => setImportOpen(false)} disabled={importing}>Cancel</Button>
             <Button
               onClick={confirmImport}
-              disabled={importPreview.length === 0 || importing}
+              disabled={(importMode === "marks" ? xlsxMarksRows.length === 0 : importPreview.length === 0) || importing}
             >
               {importing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Import {importPreview.length > 0 ? `${importPreview.length} Students` : ""}
+              {importMode === "marks"
+                ? `Save ${xlsxMarksRows.length} Mark${xlsxMarksRows.length !== 1 ? "s" : ""} to DB`
+                : `Import ${importPreview.length > 0 ? `${importPreview.length} Students` : ""}`}
             </Button>
           </DialogFooter>
         </DialogContent>
