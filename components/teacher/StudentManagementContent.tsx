@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { GraduationCap, Search, Eye, Pencil, Trash2, Loader2 } from "lucide-react";
+import { GraduationCap, Search, Eye, Pencil, Trash2, Loader2, BarChart3 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Input } from "@/components/teacher/ui/input";
 import {
   Select,
@@ -53,6 +54,7 @@ type AssessmentRow = {
 };
 
 export function StudentManagementContent() {
+  const router = useRouter();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
@@ -73,46 +75,101 @@ export function StudentManagementContent() {
     exam_date: "",
   });
 
+  // useEffect(() => {
+  //   const load = async () => {
+  //     setLoading(true);
+  //     try {
+  //       const [studentsRes, assessmentsRes]: any[] = await Promise.all([
+  //         studentsUniversalApi.getAll(),
+  //         teacherStudentAssessmentsApi.getLatestAll(),
+  //       ]);
+
+  //       const latestMap = new Map<number, AssessmentRow>();
+  //       for (const row of assessmentsRes?.data || []) {
+  //         latestMap.set(Number(row.student_id), row);
+  //       }
+
+  //       const merged: Student[] = (studentsRes?.data || []).map((s: any) => {
+  //         const latest = latestMap.get(Number(s.id));
+  //         return {
+  //           id: Number(s.id),
+  //           name: s.name || "",
+  //           phone: s.phone || "",
+  //           father_phone: s.father_phone || "",
+  //           subject: latest?.subject || "",
+  //           marks: latest?.marks !== undefined ? Number(latest.marks) : undefined,
+  //           examination: latest?.examination || "",
+  //           exam_date: latest?.exam_date || "",
+  //           standard: s.standard || "",
+  //           board: s.board || "",
+  //           location: s.location || "",
+  //         };
+  //       });
+
+  //       setStudents(merged);
+  //     } catch (err) {
+  //       console.error(err);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
+  //   load();
+  // }, []);
+
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const [studentsRes, assessmentsRes]: any[] = await Promise.all([
-          studentsUniversalApi.getAll(),
-          teacherStudentAssessmentsApi.getLatestAll(),
-        ]);
+  const load = async () => {
+    setLoading(true);
 
-        const latestMap = new Map<number, AssessmentRow>();
-        for (const row of assessmentsRes?.data || []) {
-          latestMap.set(Number(row.student_id), row);
-        }
+    // ✅ STATIC STUDENTS
+    const mockStudents: Student[] = [
+      {
+        id: 1,
+        name: "Rahul Sharma",
+        phone: "9876543210",
+        father_phone: "9123456780",
+        subject: "Math",
+        marks: 85,
+        examination: "Unit Test 1",
+        exam_date: "2026-05-01",
+        standard: "10",
+        board: "CBSE",
+        location: "Aurangabad",
+      },
+      {
+        id: 2,
+        name: "Priya Patil",
+        phone: "9988776655",
+        father_phone: "9112233445",
+        subject: "Science",
+        marks: 92,
+        examination: "Unit Test 1",
+        exam_date: "2026-05-02",
+        standard: "9",
+        board: "State Board",
+        location: "Pune",
+      },
+      {
+        id: 3,
+        name: "Amit Kumar",
+        phone: "9090909090",
+        father_phone: "9000000000",
+        subject: "English",
+        marks: 76,
+        examination: "Mid Term",
+        exam_date: "2026-05-03",
+        standard: "8",
+        board: "CBSE",
+        location: "Mumbai",
+      },
+    ];
 
-        const merged: Student[] = (studentsRes?.data || []).map((s: any) => {
-          const latest = latestMap.get(Number(s.id));
-          return {
-            id: Number(s.id),
-            name: s.name || "",
-            phone: s.phone || "",
-            father_phone: s.father_phone || "",
-            subject: latest?.subject || "",
-            marks: latest?.marks !== undefined ? Number(latest.marks) : undefined,
-            examination: latest?.examination || "",
-            exam_date: latest?.exam_date || "",
-            standard: s.standard || "",
-            board: s.board || "",
-            location: s.location || "",
-          };
-        });
+    setStudents(mockStudents);
+    setLoading(false);
+  };
 
-        setStudents(merged);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
+  load();
+}, []);
+
 
   const standards = useMemo(
     () => Array.from(new Set(students.map((student) => student.standard))).filter(Boolean),
@@ -251,6 +308,10 @@ export function StudentManagementContent() {
     }
   };
 
+  const openPerformanceAnalysis = (student: Student) => {
+    router.push(`/teacherdashboard/performanceanalysis?studentId=${student.id}`);
+  };
+
   return (
     <section className="rounded-3xl border border-border bg-card p-4 md:p-6 shadow-[var(--shadow-soft)]">
       <div className="flex items-center gap-2 text-xl font-semibold">
@@ -321,9 +382,9 @@ export function StudentManagementContent() {
           <Table>
             <TableHeader>
               <TableRow className="bg-slate-900 hover:bg-slate-900">
-                <TableHead className="text-white">Sr. No.</TableHead>
                 <TableHead className="text-white">Name</TableHead>
                 <TableHead className="text-white">Phone</TableHead>
+                {/* <TableHead className="text-white">Subject</TableHead> */}
                 <TableHead className="text-white">Marks</TableHead>
                 <TableHead className="text-white">Std</TableHead>
                 <TableHead className="text-white">Board</TableHead>
@@ -335,18 +396,18 @@ export function StudentManagementContent() {
               {filteredStudents.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={9}
+                    colSpan={8}
                     className="py-10 text-center text-sm text-muted-foreground"
                   >
                     No students found for selected filters.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredStudents.map((student, index) => (
+                filteredStudents.map((student) => (
                   <TableRow key={student.id}>
-                    <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                     <TableCell className="font-medium">{student.name}</TableCell>
                     <TableCell>{student.phone}</TableCell>
+                    {/* <TableCell>{student.subject || "—"}</TableCell> */}
                     <TableCell>
                       {student.marks !== undefined ? (
                         <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">
@@ -378,6 +439,15 @@ export function StudentManagementContent() {
                           onClick={() => openEdit(student)}
                         >
                           <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          className="h-9 w-9 rounded-full bg-violet-500 text-white hover:bg-violet-600"
+                          title="Analyze"
+                          onClick={() => openPerformanceAnalysis(student)}
+                        >
+                          <BarChart3 className="h-4 w-4" />
                         </Button>
                         <Button
                           type="button"
