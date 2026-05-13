@@ -75,100 +75,100 @@ export function StudentManagementContent() {
     exam_date: "",
   });
 
-  // useEffect(() => {
-  //   const load = async () => {
-  //     setLoading(true);
-  //     try {
-  //       const [studentsRes, assessmentsRes]: any[] = await Promise.all([
-  //         studentsUniversalApi.getAll(),
-  //         teacherStudentAssessmentsApi.getLatestAll(),
-  //       ]);
-
-  //       const latestMap = new Map<number, AssessmentRow>();
-  //       for (const row of assessmentsRes?.data || []) {
-  //         latestMap.set(Number(row.student_id), row);
-  //       }
-
-  //       const merged: Student[] = (studentsRes?.data || []).map((s: any) => {
-  //         const latest = latestMap.get(Number(s.id));
-  //         return {
-  //           id: Number(s.id),
-  //           name: s.name || "",
-  //           phone: s.phone || "",
-  //           father_phone: s.father_phone || "",
-  //           subject: latest?.subject || "",
-  //           marks: latest?.marks !== undefined ? Number(latest.marks) : undefined,
-  //           examination: latest?.examination || "",
-  //           exam_date: latest?.exam_date || "",
-  //           standard: s.standard || "",
-  //           board: s.board || "",
-  //           location: s.location || "",
-  //         };
-  //       });
-
-  //       setStudents(merged);
-  //     } catch (err) {
-  //       console.error(err);
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
-  //   load();
-  // }, []);
-
   useEffect(() => {
-  const load = async () => {
-    setLoading(true);
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [studentsRes, assessmentsRes]: any[] = await Promise.all([
+          studentsUniversalApi.getAll(),
+          teacherStudentAssessmentsApi.getLatestAll(),
+        ]);
 
-    // ✅ STATIC STUDENTS
-    const mockStudents: Student[] = [
-      {
-        id: 1,
-        name: "Rahul Sharma",
-        phone: "9876543210",
-        father_phone: "9123456780",
-        subject: "Math",
-        marks: 85,
-        examination: "Unit Test 1",
-        exam_date: "2026-05-01",
-        standard: "10",
-        board: "CBSE",
-        location: "Aurangabad",
-      },
-      {
-        id: 2,
-        name: "Priya Patil",
-        phone: "9988776655",
-        father_phone: "9112233445",
-        subject: "Science",
-        marks: 92,
-        examination: "Unit Test 1",
-        exam_date: "2026-05-02",
-        standard: "9",
-        board: "State Board",
-        location: "Pune",
-      },
-      {
-        id: 3,
-        name: "Amit Kumar",
-        phone: "9090909090",
-        father_phone: "9000000000",
-        subject: "English",
-        marks: 76,
-        examination: "Mid Term",
-        exam_date: "2026-05-03",
-        standard: "8",
-        board: "CBSE",
-        location: "Mumbai",
-      },
-    ];
+        const latestMap = new Map<number, AssessmentRow>();
+        for (const row of assessmentsRes?.data || []) {
+          latestMap.set(Number(row.student_id), row);
+        }
 
-    setStudents(mockStudents);
-    setLoading(false);
-  };
+        const merged: Student[] = (studentsRes?.data || []).map((s: any) => {
+          const latest = latestMap.get(Number(s.id));
+          return {
+            id: Number(s.id),
+            name: s.name || "",
+            phone: s.phone || "",
+            father_phone: s.father_phone || "",
+            subject: latest?.subject || "",
+            marks: latest?.marks !== undefined ? Number(latest.marks) : undefined,
+            examination: latest?.examination || "",
+            exam_date: latest?.exam_date || "",
+            standard: s.standard || "",
+            board: s.board || "",
+            location: s.location || "",
+          };
+        });
 
-  load();
-}, []);
+        setStudents(merged);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+//   useEffect(() => {
+//   const load = async () => {
+//     setLoading(true);
+
+//     // ✅ STATIC STUDENTS
+//     const mockStudents: Student[] = [
+//       {
+//         id: 1,
+//         name: "Rahul Sharma",
+//         phone: "9876543210",
+//         father_phone: "9123456780",
+//         subject: "Math",
+//         marks: 85,
+//         examination: "Unit Test 1",
+//         exam_date: "2026-05-01",
+//         standard: "10",
+//         board: "CBSE",
+//         location: "Aurangabad",
+//       },
+//       {
+//         id: 2,
+//         name: "Priya Patil",
+//         phone: "9988776655",
+//         father_phone: "9112233445",
+//         subject: "Science",
+//         marks: 92,
+//         examination: "Unit Test 1",
+//         exam_date: "2026-05-02",
+//         standard: "9",
+//         board: "State Board",
+//         location: "Pune",
+//       },
+//       {
+//         id: 3,
+//         name: "Amit Kumar",
+//         phone: "9090909090",
+//         father_phone: "9000000000",
+//         subject: "English",
+//         marks: 76,
+//         examination: "Mid Term",
+//         exam_date: "2026-05-03",
+//         standard: "8",
+//         board: "CBSE",
+//         location: "Mumbai",
+//       },
+//     ];
+
+//     setStudents(mockStudents);
+//     setLoading(false);
+//   };
+
+//   load();
+// }, []);
 
 
   const standards = useMemo(
