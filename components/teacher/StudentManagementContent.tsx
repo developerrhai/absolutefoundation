@@ -18,6 +18,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  ClipboardList,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/teacher/ui/input";
@@ -340,6 +341,17 @@ export function StudentManagementContent() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
+  // ── Bulk marks state ──────────────────────────────────────────────────────────
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkCommon, setBulkCommon] = useState({
+    subject: "",
+    examination: "",
+    exam_date: new Date().toISOString().split("T")[0],
+  });
+  const [bulkMarks, setBulkMarks] = useState<Record<number, string>>({});
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+
   // Import state
   const [importOpen, setImportOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -610,6 +622,68 @@ export function StudentManagementContent() {
     }
   };
 
+  // ── Bulk marks save ───────────────────────────────────────────────────────────
+
+  const saveBulkMarks = async () => {
+    if (!bulkCommon.subject || !bulkCommon.examination || !bulkCommon.exam_date) {
+      alert("Please fill Subject, Examination and Date first.");
+      return;
+    }
+    const entries = Object.entries(bulkMarks).filter(([, v]) => v.trim() !== "");
+    if (entries.length === 0) {
+      alert("Enter marks for at least one student.");
+      return;
+    }
+    const invalid = entries.find(([, v]) => Number.isNaN(Number(v)) || Number(v) < 0);
+    if (invalid) {
+      alert("All marks must be valid non-negative numbers.");
+      return;
+    }
+
+    setBulkSaving(true);
+    setBulkProgress({ done: 0, total: entries.length });
+    let done = 0;
+    const updatedIds: number[] = [];
+
+    for (const [idStr, marksStr] of entries) {
+      const studentId = Number(idStr);
+      try {
+        await teacherStudentAssessmentsApi.createByStudent(studentId, {
+          subject: bulkCommon.subject,
+          marks: Number(marksStr),
+          examination: bulkCommon.examination,
+          exam_date: bulkCommon.exam_date,
+        });
+        updatedIds.push(studentId);
+      } catch (err) {
+        console.error(`Failed for student ${studentId}:`, err);
+      }
+      done++;
+      setBulkProgress({ done, total: entries.length });
+    }
+
+    // Refresh latest marks in table for updated students
+    setStudents((prev) =>
+      prev.map((s) => {
+        if (!updatedIds.includes(s.id)) return s;
+        const m = bulkMarks[s.id];
+        return {
+          ...s,
+          subject: bulkCommon.subject,
+          marks: m !== undefined && m.trim() !== "" ? Number(m) : s.marks,
+          examination: bulkCommon.examination,
+          exam_date: bulkCommon.exam_date,
+        };
+      })
+    );
+
+    setBulkSaving(false);
+    setBulkProgress(null);
+    setBulkOpen(false);
+    setBulkMarks({});
+    setBulkCommon({ subject: "", examination: "", exam_date: new Date().toISOString().split("T")[0] });
+  };
+
   const deleteStudent = async (student: Student) => {
     if (!confirm(`Delete student "${student.name}"?`)) return;
     setActionLoadingId(student.id);
@@ -673,6 +747,20 @@ export function StudentManagementContent() {
           >
             <Upload className="h-4 w-4" />
             Import
+          </Button>
+
+          <Button
+            variant="outline"
+            className="h-9 rounded-full gap-1.5 text-sm border-amber-400 text-amber-600 hover:bg-amber-50"
+            onClick={() => {
+              setBulkMarks({});
+              setBulkCommon({ subject: "", examination: "", exam_date: new Date().toISOString().split("T")[0] });
+              setBulkProgress(null);
+              setBulkOpen(true);
+            }}
+          >
+            <ClipboardList className="h-4 w-4" />
+            Bulk Marks
           </Button>
         </div>
       </div>
@@ -1004,6 +1092,133 @@ export function StudentManagementContent() {
             >
               {importing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Import {importPreview.length > 0 ? `${importPreview.length} Students` : ""}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* ── Bulk Marks Dialog ────────────────────────────────────────────── */}
+      <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5 text-amber-500" />
+              Bulk Add Marks
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 flex-1 overflow-y-auto pr-1">
+            {/* Common fields */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 rounded-xl bg-muted/50 p-4">
+              <div className="space-y-1">
+                <Label>Subject <span className="text-red-500">*</span></Label>
+                <Input
+                  value={bulkCommon.subject}
+                  onChange={(e) => setBulkCommon((p) => ({ ...p, subject: e.target.value }))}
+                  placeholder="e.g. Mathematics"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Examination <span className="text-red-500">*</span></Label>
+                <Input
+                  value={bulkCommon.examination}
+                  onChange={(e) => setBulkCommon((p) => ({ ...p, examination: e.target.value }))}
+                  placeholder="e.g. Unit Test 1"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Date <span className="text-red-500">*</span></Label>
+                <Input
+                  type="date"
+                  value={bulkCommon.exam_date}
+                  onChange={(e) => setBulkCommon((p) => ({ ...p, exam_date: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            {/* Info */}
+            <p className="text-xs text-muted-foreground px-1">
+              Showing {filteredStudents.length} student{filteredStudents.length !== 1 ? "s" : ""} matching current filters. Leave marks blank to skip a student.
+            </p>
+
+            {/* Student marks table */}
+            <div className="rounded-xl border border-border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-900 hover:bg-slate-900">
+                    <TableHead className="text-white">Name</TableHead>
+                    <TableHead className="text-white">Std</TableHead>
+                    <TableHead className="text-white">Board</TableHead>
+                    <TableHead className="text-white w-36">Marks</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredStudents.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground text-sm">
+                        No students match current filters.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredStudents.map((student) => (
+                      <TableRow key={student.id}>
+                        <TableCell className="font-medium">{student.name}</TableCell>
+                        <TableCell>{student.standard}</TableCell>
+                        <TableCell>{student.board}</TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min={0}
+                            placeholder="—"
+                            value={bulkMarks[student.id] ?? ""}
+                            onChange={(e) =>
+                              setBulkMarks((prev) => ({ ...prev, [student.id]: e.target.value }))
+                            }
+                            className="h-8 w-28 rounded-full text-sm"
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Progress bar */}
+            {bulkProgress && (
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Saving…</span>
+                  <span>{bulkProgress.done} / {bulkProgress.total}</span>
+                </div>
+                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full bg-amber-400 transition-all duration-300"
+                    style={{ width: `${(bulkProgress.done / bulkProgress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button variant="outline" onClick={() => setBulkOpen(false)} disabled={bulkSaving}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+              onClick={saveBulkMarks}
+              disabled={bulkSaving}
+            >
+              {bulkSaving ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving…</>
+              ) : (
+                <>
+                  <ClipboardList className="h-4 w-4 mr-2" />
+                  Save {Object.values(bulkMarks).filter((v) => v.trim() !== "").length > 0
+                    ? `${Object.values(bulkMarks).filter((v) => v.trim() !== "").length} Marks`
+                    : "Marks"}
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
