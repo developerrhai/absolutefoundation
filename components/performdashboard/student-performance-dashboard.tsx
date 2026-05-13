@@ -81,10 +81,10 @@ function buildDashboardData(
   rows: AssessmentRow[],
   totalStudents: number
 ): DashboardData {
-const subjectMap = new Map<
-  string,
-  { latest?: AssessmentRow; previous?: AssessmentRow }
->();
+  const subjectMap = new Map<
+    string,
+    { latest?: AssessmentRow; previous?: AssessmentRow }
+  >();
 
   for (const row of rows) {
     if (!row?.subject) continue;
@@ -156,6 +156,231 @@ const subjectMap = new Map<
   };
 }
 
+// ─── Report HTML builder ─────────────────────────────────────────────────────
+
+function generateReportHTML(data: DashboardData): string {
+  const generatedOn = new Date().toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+
+  const subjectRows = data.subjects
+    .map((s) => {
+      const pct = ((s.marks / s.total) * 100).toFixed(1);
+      const pctNum = Number(pct);
+      const grade =
+        pctNum >= 90 ? "A+" :
+        pctNum >= 80 ? "A"  :
+        pctNum >= 70 ? "B+" :
+        pctNum >= 60 ? "B"  :
+        pctNum >= 50 ? "C"  : "D";
+      const barW = Math.max(0, Math.min(100, pctNum));
+      const badgeBg  = pctNum >= 75 ? "#dcfce7" : pctNum >= 50 ? "#fef9c3" : "#fee2e2";
+      const badgeFg  = pctNum >= 75 ? "#15803d" : pctNum >= 50 ? "#854d0e" : "#b91c1c";
+      return `
+        <tr>
+          <td style="padding:10px 12px;font-weight:500;color:#1e293b">${s.name}</td>
+          <td style="padding:10px 12px;text-align:center;color:#475569">${s.marks}</td>
+          <td style="padding:10px 12px;text-align:center;color:#475569">${s.total}</td>
+          <td style="padding:10px 12px;text-align:center;color:#475569">${pct}%</td>
+          <td style="padding:10px 12px;text-align:center">
+            <span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:12px;
+              font-weight:700;background:${badgeBg};color:${badgeFg}">${grade}</span>
+          </td>
+          <td style="padding:10px 12px">
+            <div style="background:#e2e8f0;border-radius:4px;height:8px;width:100%;min-width:80px">
+              <div style="background:${s.color};height:8px;border-radius:4px;width:${barW}%"></div>
+            </div>
+          </td>
+        </tr>`;
+    })
+    .join("");
+
+  const compRows = data.performanceData
+    .map((p) => {
+      const diff = p.thisTerm - p.lastTerm;
+      const arrow = diff > 0 ? "&#9650;" : diff < 0 ? "&#9660;" : "&#8212;";
+      const color = diff > 0 ? "#16a34a" : diff < 0 ? "#dc2626" : "#94a3b8";
+      return `
+        <tr>
+          <td style="padding:10px 12px;font-weight:500;color:#1e293b">${p.subject}</td>
+          <td style="padding:10px 12px;text-align:center;color:#475569">${p.lastTerm}</td>
+          <td style="padding:10px 12px;text-align:center;color:#475569">${p.thisTerm}</td>
+          <td style="padding:10px 12px;text-align:center;font-weight:700;color:${color}">
+            ${arrow} ${Math.abs(diff)}
+          </td>
+        </tr>`;
+    })
+    .join("");
+
+  const changeClass = (v: number) => (v >= 0 ? "change-pos" : "change-neg");
+  const arrow = (v: number) => (v >= 0 ? "&#9650;" : "&#9660;");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Performance Report &ndash; ${data.name}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0 }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #fff; color: #1e293b; font-size: 14px }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact }
+      .no-print { display: none }
+    }
+    .page { max-width: 900px; margin: 0 auto; padding: 40px 36px }
+    /* Header */
+    .header { display: flex; align-items: center; justify-content: space-between;
+      padding-bottom: 20px; border-bottom: 3px solid #0d9488; margin-bottom: 28px }
+    .header-left h1 { font-size: 22px; font-weight: 700; color: #0d9488; letter-spacing: -0.5px }
+    .header-left p { font-size: 12px; color: #94a3b8; margin-top: 2px }
+    .header-badge { background: #0d9488; color: #fff; padding: 6px 16px; border-radius: 20px;
+      font-size: 12px; font-weight: 600 }
+    /* Profile */
+    .profile-card { background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 12px;
+      padding: 20px 24px; display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 24px }
+    .profile-field label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .5px }
+    .profile-field p { font-size: 15px; font-weight: 600; color: #0f172a; margin-top: 2px }
+    /* Stats */
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px }
+    .stat-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
+      padding: 16px; text-align: center }
+    .stat-box .label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .5px }
+    .stat-box .value { font-size: 26px; font-weight: 700; color: #0f172a; margin: 4px 0 2px }
+    .stat-box .sub { font-size: 12px; color: #94a3b8 }
+    .change-pos { font-size: 12px; color: #16a34a; font-weight: 600 }
+    .change-neg { font-size: 12px; color: #dc2626; font-weight: 600 }
+    /* Section headings */
+    .section-title { font-size: 14px; font-weight: 700; color: #0f172a;
+      border-left: 4px solid #0d9488; padding-left: 10px; margin: 24px 0 14px }
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; font-size: 13px }
+    thead tr { background: #f1f5f9 }
+    thead th { padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase;
+      letter-spacing: .5px; color: #64748b; font-weight: 600 }
+    tbody tr:nth-child(even) { background: #f8fafc }
+    /* Footer */
+    .footer { margin-top: 36px; padding-top: 16px; border-top: 1px solid #e2e8f0;
+      display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8 }
+    /* Print button */
+    .print-btn { display: block; margin: 0 auto 28px; padding: 10px 28px; background: #0d9488;
+      color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
+      cursor: pointer; letter-spacing: .3px }
+    .print-btn:hover { background: #0f766e }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <button class="print-btn no-print" onclick="window.print()">&#128438; Print / Save as PDF</button>
+
+  <div class="header">
+    <div class="header-left">
+      <h1>Student Performance Report</h1>
+      <p>Generated on ${generatedOn}</p>
+    </div>
+    <span class="header-badge">Academic Report</span>
+  </div>
+
+  <div class="profile-card">
+    <div class="profile-field"><label>Student Name</label><p>${data.name}</p></div>
+    <div class="profile-field"><label>Class / Standard</label><p>${data.class}</p></div>
+    <div class="profile-field"><label>Board</label><p>${data.board}</p></div>
+    <div class="profile-field"><label>Location</label><p>${data.location}</p></div>
+    <div class="profile-field"><label>Contact</label><p>${data.phone}</p></div>
+  </div>
+
+  <div class="section-title">Performance Overview</div>
+  <div class="stats-grid">
+    <div class="stat-box">
+      <div class="label">Overall %</div>
+      <div class="value">${data.stats.overallPercentage}%</div>
+      <div class="${changeClass(data.stats.percentageChange)}">
+        ${arrow(data.stats.percentageChange)} ${Math.abs(data.stats.percentageChange)}% vs Last Term
+      </div>
+    </div>
+    <div class="stat-box">
+      <div class="label">Avg Marks</div>
+      <div class="value">${data.stats.averageMarks}</div>
+      <div class="sub">out of ${data.stats.totalMarks}</div>
+    </div>
+    <div class="stat-box">
+      <div class="label">Class Rank</div>
+      <div class="value">${data.stats.classRank}</div>
+      <div class="sub">of ${data.stats.totalStudents} students</div>
+    </div>
+    <div class="stat-box">
+      <div class="label">Attendance</div>
+      <div class="value">${data.stats.attendance}%</div>
+      <div class="${changeClass(data.stats.attendanceChange)}">
+        ${arrow(data.stats.attendanceChange)} ${Math.abs(data.stats.attendanceChange)}% vs Last Term
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Subject-wise Performance</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Subject</th>
+        <th style="text-align:center">Marks Obtained</th>
+        <th style="text-align:center">Total Marks</th>
+        <th style="text-align:center">Percentage</th>
+        <th style="text-align:center">Grade</th>
+        <th>Progress</th>
+      </tr>
+    </thead>
+    <tbody>${subjectRows}</tbody>
+  </table>
+
+  ${compRows ? `
+  <div class="section-title">Term-over-Term Comparison</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Subject</th>
+        <th style="text-align:center">Last Term</th>
+        <th style="text-align:center">This Term</th>
+        <th style="text-align:center">Change</th>
+      </tr>
+    </thead>
+    <tbody>${compRows}</tbody>
+  </table>` : ""}
+
+  <div class="footer">
+    <span>Student Performance Analysis System</span>
+    <span>Report for ${data.name} &nbsp;|&nbsp; ${generatedOn}</span>
+  </div>
+</div>
+</body>
+</html>`;
+}
+
+async function downloadReport(data: DashboardData) {
+  const html = generateReportHTML(data);
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+
+  // Open in a new tab; user can Ctrl+P / Cmd+P to save as PDF
+  const win = window.open(url, "_blank");
+  if (win) {
+    win.focus();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  } else {
+    // Popup blocked → fall back to direct download
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `report-${data.name.replace(/\s+/g, "-").toLowerCase()}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5_000);
+  }
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export default function StudentPerformanceDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -164,6 +389,7 @@ export default function StudentPerformanceDashboard() {
   const [dashboardData, setDashboardData] = useState<DashboardData>(studentData);
   const [loading, setLoading] = useState(true);
   const [studentLoading, setStudentLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const selectedStudent = useMemo(
@@ -216,6 +442,15 @@ export default function StudentPerformanceDashboard() {
   const handleStudentChange = (id: number) => {
     setSelectedStudentId(id);
     router.replace(`/teacherdashboard/performanceanalysis?studentId=${id}`);
+  };
+
+  const handleDownloadReport = async () => {
+    setDownloading(true);
+    try {
+      await downloadReport(dashboardData);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   useEffect(() => {
@@ -275,9 +510,19 @@ export default function StudentPerformanceDashboard() {
                 ))
               )}
             </select>
-            <Button className="bg-teal-500 hover:bg-teal-600 text-white gap-2 shadow-md">
-              <Download className="h-4 w-4" />
-              <span className="hidden sm:inline">Download Report</span>
+            <Button
+              onClick={handleDownloadReport}
+              disabled={downloading || loading || studentLoading}
+              className="bg-teal-500 hover:bg-teal-600 text-white gap-2 shadow-md disabled:opacity-60"
+            >
+              {downloading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline">
+                {downloading ? "Preparing..." : "Download Report"}
+              </span>
             </Button>
           </div>
         </div>
