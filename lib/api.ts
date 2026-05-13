@@ -9,7 +9,8 @@
  *   const students = await studentsApi.getAll({ standard: "10" })
  */
 
-const BASE = process.env.NEXT_PUBLIC_API_URL;
+const RAW_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+const BASE = RAW_BASE.replace(/\/+$/, "");
 
 /* ── token helpers ──────────────────────────────────────── */
 export const getToken = () =>
