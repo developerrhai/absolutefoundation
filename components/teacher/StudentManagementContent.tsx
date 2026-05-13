@@ -1,7 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { GraduationCap, Search, Eye, Pencil, Trash2, Loader2, BarChart3 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  GraduationCap,
+  Search,
+  Eye,
+  Pencil,
+  Trash2,
+  Loader2,
+  BarChart3,
+  Download,
+  Upload,
+  FileJson,
+  FileText,
+  ChevronDown,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/teacher/ui/input";
 import {
@@ -53,6 +66,114 @@ type AssessmentRow = {
   exam_date: string;
 };
 
+// ─── CSV helpers ─────────────────────────────────────────────────────────────
+
+function studentsToCSV(students: Student[]): string {
+  const headers = [
+    "id",
+    "name",
+    "phone",
+    "father_phone",
+    "subject",
+    "marks",
+    "examination",
+    "exam_date",
+    "standard",
+    "board",
+    "location",
+  ];
+  const escape = (v: unknown) => {
+    const s = v === undefined || v === null ? "" : String(v);
+    return s.includes(",") || s.includes('"') || s.includes("\n")
+      ? `"${s.replace(/"/g, '""')}"`
+      : s;
+  };
+  const rows = students.map((s) =>
+    headers.map((h) => escape(s[h as keyof Student])).join(",")
+  );
+  return [headers.join(","), ...rows].join("\n");
+}
+
+function parseCSV(text: string): Record<string, string>[] {
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(",").map((h) => h.trim());
+  return lines.slice(1).map((line) => {
+    // simple CSV parse (handles quoted fields)
+    const values: string[] = [];
+    let cur = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; }
+        else inQuotes = !inQuotes;
+      } else if (ch === "," && !inQuotes) {
+        values.push(cur); cur = "";
+      } else {
+        cur += ch;
+      }
+    }
+    values.push(cur);
+    const obj: Record<string, string> = {};
+    headers.forEach((h, i) => { obj[h] = values[i] ?? ""; });
+    return obj;
+  });
+}
+
+function downloadBlob(content: string, filename: string, type: string) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── Dropdown menu component ─────────────────────────────────────────────────
+
+function DropdownMenu({
+  trigger,
+  items,
+}: {
+  trigger: React.ReactNode;
+  items: { icon: React.ReactNode; label: string; onClick: () => void }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div className="relative" ref={ref}>
+      <div onClick={() => setOpen((p) => !p)}>{trigger}</div>
+      {open && (
+        <div className="absolute right-0 z-50 mt-2 min-w-[180px] rounded-xl border border-border bg-popover shadow-lg py-1 animate-in fade-in slide-in-from-top-1">
+          {items.map((item) => (
+            <button
+              key={item.label}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-sm hover:bg-muted transition-colors text-left"
+              onClick={() => { item.onClick(); setOpen(false); }}
+            >
+              {item.icon}
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export function StudentManagementContent() {
   const router = useRouter();
   const [students, setStudents] = useState<Student[]>([]);
@@ -74,6 +195,15 @@ export function StudentManagementContent() {
     examination: "",
     exam_date: "",
   });
+
+  // Import state
+  const [importOpen, setImportOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importFormat, setImportFormat] = useState<"csv" | "json">("csv");
+  const [importPreview, setImportPreview] = useState<Student[]>([]);
+  const [importError, setImportError] = useState("");
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -116,94 +246,132 @@ export function StudentManagementContent() {
     load();
   }, []);
 
-//   useEffect(() => {
-//   const load = async () => {
-//     setLoading(true);
-
-//     // ✅ STATIC STUDENTS
-//     const mockStudents: Student[] = [
-//       {
-//         id: 1,
-//         name: "Rahul Sharma",
-//         phone: "9876543210",
-//         father_phone: "9123456780",
-//         subject: "Math",
-//         marks: 85,
-//         examination: "Unit Test 1",
-//         exam_date: "2026-05-01",
-//         standard: "10",
-//         board: "CBSE",
-//         location: "Aurangabad",
-//       },
-//       {
-//         id: 2,
-//         name: "Priya Patil",
-//         phone: "9988776655",
-//         father_phone: "9112233445",
-//         subject: "Science",
-//         marks: 92,
-//         examination: "Unit Test 1",
-//         exam_date: "2026-05-02",
-//         standard: "9",
-//         board: "State Board",
-//         location: "Pune",
-//       },
-//       {
-//         id: 3,
-//         name: "Amit Kumar",
-//         phone: "9090909090",
-//         father_phone: "9000000000",
-//         subject: "English",
-//         marks: 76,
-//         examination: "Mid Term",
-//         exam_date: "2026-05-03",
-//         standard: "8",
-//         board: "CBSE",
-//         location: "Mumbai",
-//       },
-//     ];
-
-//     setStudents(mockStudents);
-//     setLoading(false);
-//   };
-
-//   load();
-// }, []);
-
-
   const standards = useMemo(
-    () => Array.from(new Set(students.map((student) => student.standard))).filter(Boolean),
+    () => Array.from(new Set(students.map((s) => s.standard))).filter(Boolean),
     [students]
   );
   const boards = useMemo(
-    () => Array.from(new Set(students.map((student) => student.board))).filter(Boolean),
+    () => Array.from(new Set(students.map((s) => s.board))).filter(Boolean),
     [students]
   );
   const locations = useMemo(
-    () => Array.from(new Set(students.map((student) => student.location))).filter(Boolean),
+    () => Array.from(new Set(students.map((s) => s.location))).filter(Boolean),
     [students]
   );
 
   const filteredStudents = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-
     return students.filter((student) => {
       const matchesQuery =
         query.length === 0 ||
         student.name.toLowerCase().includes(query) ||
         student.phone.toLowerCase().includes(query) ||
         String(student.father_phone || "").toLowerCase().includes(query);
-      const matchesStandard =
-        standardFilter === "all" || student.standard === standardFilter;
+      const matchesStandard = standardFilter === "all" || student.standard === standardFilter;
       const matchesBoard = boardFilter === "all" || student.board === boardFilter;
-      const matchesLocation =
-        locationFilter === "all" || student.location === locationFilter;
-
-      return (
-        matchesQuery && matchesStandard && matchesBoard && matchesLocation
-      );
+      const matchesLocation = locationFilter === "all" || student.location === locationFilter;
+      return matchesQuery && matchesStandard && matchesBoard && matchesLocation;
     });
   }, [students, searchTerm, standardFilter, boardFilter, locationFilter]);
+
+  // ── Export ────────────────────────────────────────────────────────────────
+
+  const exportCSV = () => {
+    const csv = studentsToCSV(filteredStudents);
+    downloadBlob(csv, "students.csv", "text/csv;charset=utf-8;");
+  };
+
+  const exportJSON = () => {
+    const json = JSON.stringify(filteredStudents, null, 2);
+    downloadBlob(json, "students.json", "application/json");
+  };
+
+  // ── Import ────────────────────────────────────────────────────────────────
+
+  const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportFile(file);
+    setImportError("");
+    setImportPreview([]);
+
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    const fmt: "csv" | "json" = ext === "json" ? "json" : "csv";
+    setImportFormat(fmt);
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target?.result as string;
+        let parsed: Student[] = [];
+
+        if (fmt === "json") {
+          const raw = JSON.parse(text);
+          parsed = (Array.isArray(raw) ? raw : [raw]).map((r: any, idx) => ({
+            id: Number(r.id) || idx + 1,
+            name: r.name || "",
+            phone: r.phone || "",
+            father_phone: r.father_phone || "",
+            subject: r.subject || "",
+            marks: r.marks !== undefined ? Number(r.marks) : undefined,
+            examination: r.examination || "",
+            exam_date: r.exam_date || "",
+            standard: r.standard || "",
+            board: r.board || "",
+            location: r.location || "",
+          }));
+        } else {
+          const rows = parseCSV(text);
+          parsed = rows.map((r, idx) => ({
+            id: Number(r.id) || idx + 1,
+            name: r.name || "",
+            phone: r.phone || "",
+            father_phone: r.father_phone || "",
+            subject: r.subject || "",
+            marks: r.marks !== "" && r.marks !== undefined ? Number(r.marks) : undefined,
+            examination: r.examination || "",
+            exam_date: r.exam_date || "",
+            standard: r.standard || "",
+            board: r.board || "",
+            location: r.location || "",
+          }));
+        }
+
+        if (parsed.length === 0) throw new Error("No valid rows found in file.");
+        setImportPreview(parsed);
+      } catch (err: any) {
+        setImportError(err.message || "Failed to parse file.");
+        setImportPreview([]);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const confirmImport = async () => {
+    if (importPreview.length === 0) return;
+    setImporting(true);
+    try {
+      // Merge imported students into local state (by id; add if missing)
+      setStudents((prev) => {
+        const map = new Map(prev.map((s) => [s.id, s]));
+        for (const s of importPreview) {
+          map.set(s.id, s);
+        }
+        return Array.from(map.values());
+      });
+      // TODO: optionally call API to persist imported students
+      setImportOpen(false);
+      setImportFile(null);
+      setImportPreview([]);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch (err: any) {
+      setImportError(err.message || "Import failed.");
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  // ── View / Edit / Delete (unchanged logic) ───────────────────────────────
 
   const openView = async (student: Student) => {
     setSelectedStudent(student);
@@ -267,7 +435,6 @@ export function StudentManagementContent() {
       setHistoryRows(nextHistory);
 
       const latest = nextHistory[0];
-
       setStudents((prev) =>
         prev.map((s) =>
           s.id === selectedStudent.id
@@ -281,12 +448,7 @@ export function StudentManagementContent() {
             : s
         )
       );
-      setEditForm({
-        subject: "",
-        marks: "",
-        examination: "",
-        exam_date: new Date().toISOString().split("T")[0],
-      });
+      setEditForm({ subject: "", marks: "", examination: "", exam_date: new Date().toISOString().split("T")[0] });
       setEditOpen(false);
     } catch (err: any) {
       alert(err.message || "Failed to save");
@@ -312,19 +474,66 @@ export function StudentManagementContent() {
     router.push(`/teacherdashboard/performanceanalysis?studentId=${student.id}`);
   };
 
+  // ── Render ────────────────────────────────────────────────────────────────
+
   return (
     <section className="rounded-3xl border border-border bg-card p-4 md:p-6 shadow-[var(--shadow-soft)]">
-      <div className="flex items-center gap-2 text-xl font-semibold">
-        <GraduationCap className="h-5 w-5 text-primary" />
-        <h2>Students Management</h2>
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-xl font-semibold">
+          <GraduationCap className="h-5 w-5 text-primary" />
+          <h2>Students Management</h2>
+        </div>
+
+        {/* Export / Import buttons */}
+        <div className="flex items-center gap-2">
+          {/* Export dropdown */}
+          <DropdownMenu
+            trigger={
+              <Button variant="outline" className="h-9 rounded-full gap-1.5 text-sm">
+                <Download className="h-4 w-4" />
+                Export
+                <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+              </Button>
+            }
+            items={[
+              {
+                icon: <FileText className="h-4 w-4 text-emerald-600" />,
+                label: "Export as CSV",
+                onClick: exportCSV,
+              },
+              {
+                icon: <FileJson className="h-4 w-4 text-blue-600" />,
+                label: "Export as JSON",
+                onClick: exportJSON,
+              },
+            ]}
+          />
+
+          {/* Import button */}
+          <Button
+            className="h-9 rounded-full gap-1.5 text-sm"
+            onClick={() => {
+              setImportOpen(true);
+              setImportFile(null);
+              setImportPreview([]);
+              setImportError("");
+              if (fileInputRef.current) fileInputRef.current.value = "";
+            }}
+          >
+            <Upload className="h-4 w-4" />
+            Import
+          </Button>
+        </div>
       </div>
 
+      {/* Filters */}
       <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-4">
         <div className="relative md:col-span-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search by name or phone..."
             className="h-10 rounded-full pl-10"
           />
@@ -336,10 +545,8 @@ export function StudentManagementContent() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Standards</SelectItem>
-            {standards.map((standard) => (
-              <SelectItem key={standard} value={standard}>
-                Std {standard}
-              </SelectItem>
+            {standards.map((s) => (
+              <SelectItem key={s} value={s}>Std {s}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -350,10 +557,8 @@ export function StudentManagementContent() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Boards</SelectItem>
-            {boards.map((board) => (
-              <SelectItem key={board} value={board}>
-                {board}
-              </SelectItem>
+            {boards.map((b) => (
+              <SelectItem key={b} value={b}>{b}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -364,15 +569,14 @@ export function StudentManagementContent() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Locations</SelectItem>
-            {locations.map((location) => (
-              <SelectItem key={location} value={location}>
-                {location}
-              </SelectItem>
+            {locations.map((l) => (
+              <SelectItem key={l} value={l}>{l}</SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
+      {/* Table */}
       <div className="mt-5 overflow-hidden rounded-2xl border border-border">
         {loading ? (
           <div className="py-10 flex justify-center">
@@ -384,7 +588,6 @@ export function StudentManagementContent() {
               <TableRow className="bg-slate-900 hover:bg-slate-900">
                 <TableHead className="text-white">Name</TableHead>
                 <TableHead className="text-white">Phone</TableHead>
-                {/* <TableHead className="text-white">Subject</TableHead> */}
                 <TableHead className="text-white">Marks</TableHead>
                 <TableHead className="text-white">Std</TableHead>
                 <TableHead className="text-white">Board</TableHead>
@@ -395,10 +598,7 @@ export function StudentManagementContent() {
             <TableBody>
               {filteredStudents.length === 0 ? (
                 <TableRow>
-                  <TableCell
-                    colSpan={8}
-                    className="py-10 text-center text-sm text-muted-foreground"
-                  >
+                  <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
                     No students found for selected filters.
                   </TableCell>
                 </TableRow>
@@ -407,61 +607,29 @@ export function StudentManagementContent() {
                   <TableRow key={student.id}>
                     <TableCell className="font-medium">{student.name}</TableCell>
                     <TableCell>{student.phone}</TableCell>
-                    {/* <TableCell>{student.subject || "—"}</TableCell> */}
                     <TableCell>
                       {student.marks !== undefined ? (
                         <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">
                           {student.marks}
                         </span>
-                      ) : (
-                        "—"
-                      )}
+                      ) : "—"}
                     </TableCell>
                     <TableCell>{student.standard}</TableCell>
                     <TableCell>{student.board}</TableCell>
                     <TableCell>{student.location}</TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-2">
-                        <Button
-                          type="button"
-                          size="icon"
-                          className="h-9 w-9 rounded-full bg-cyan-500 text-white hover:bg-cyan-600"
-                          title="View"
-                          onClick={() => openView(student)}
-                        >
+                        <Button type="button" size="icon" className="h-9 w-9 rounded-full bg-cyan-500 text-white hover:bg-cyan-600" title="View" onClick={() => openView(student)}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button
-                          type="button"
-                          size="icon"
-                          className="h-9 w-9 rounded-full bg-teal-500 text-white hover:bg-teal-600"
-                          title="Edit"
-                          onClick={() => openEdit(student)}
-                        >
+                        <Button type="button" size="icon" className="h-9 w-9 rounded-full bg-teal-500 text-white hover:bg-teal-600" title="Edit" onClick={() => openEdit(student)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button
-                          type="button"
-                          size="icon"
-                          className="h-9 w-9 rounded-full bg-violet-500 text-white hover:bg-violet-600"
-                          title="Analyze"
-                          onClick={() => openPerformanceAnalysis(student)}
-                        >
+                        <Button type="button" size="icon" className="h-9 w-9 rounded-full bg-violet-500 text-white hover:bg-violet-600" title="Analyze" onClick={() => openPerformanceAnalysis(student)}>
                           <BarChart3 className="h-4 w-4" />
                         </Button>
-                        <Button
-                          type="button"
-                          size="icon"
-                          className="h-9 w-9 rounded-full bg-red-500 text-white hover:bg-red-600"
-                          title="Delete"
-                          onClick={() => deleteStudent(student)}
-                          disabled={actionLoadingId === student.id}
-                        >
-                          {actionLoadingId === student.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
+                        <Button type="button" size="icon" className="h-9 w-9 rounded-full bg-red-500 text-white hover:bg-red-600" title="Delete" onClick={() => deleteStudent(student)} disabled={actionLoadingId === student.id}>
+                          {actionLoadingId === student.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                         </Button>
                       </div>
                     </TableCell>
@@ -473,6 +641,7 @@ export function StudentManagementContent() {
         )}
       </div>
 
+      {/* ── View Dialog ─────────────────────────────────────────────────── */}
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -487,7 +656,6 @@ export function StudentManagementContent() {
                 <div><span className="text-muted-foreground">Board:</span> {selectedStudent.board}</div>
                 <div><span className="text-muted-foreground">Location:</span> {selectedStudent.location}</div>
               </div>
-
               <div className="rounded-xl border border-border overflow-hidden">
                 <Table>
                   <TableHeader>
@@ -500,17 +668,9 @@ export function StudentManagementContent() {
                   </TableHeader>
                   <TableBody>
                     {historyLoading ? (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-center py-6">
-                          <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
-                        </TableCell>
-                      </TableRow>
+                      <TableRow><TableCell colSpan={4} className="text-center py-6"><Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" /></TableCell></TableRow>
                     ) : historyRows.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
-                          No assessment entries yet.
-                        </TableCell>
-                      </TableRow>
+                      <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">No assessment entries yet.</TableCell></TableRow>
                     ) : (
                       historyRows.map((row) => (
                         <TableRow key={`${row.id || 0}-${row.exam_date}-${row.subject}`}>
@@ -529,47 +689,29 @@ export function StudentManagementContent() {
         </DialogContent>
       </Dialog>
 
+      {/* ── Edit Dialog ─────────────────────────────────────────────────── */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Add Student Test</DialogTitle>
           </DialogHeader>
-
           <div className="space-y-4">
             <div className="space-y-1">
               <Label>Subject</Label>
-              <Input
-                value={editForm.subject}
-                onChange={(e) => setEditForm((p) => ({ ...p, subject: e.target.value }))}
-                placeholder="e.g. Mathematics"
-              />
+              <Input value={editForm.subject} onChange={(e) => setEditForm((p) => ({ ...p, subject: e.target.value }))} placeholder="e.g. Mathematics" />
             </div>
             <div className="space-y-1">
               <Label>Marks</Label>
-              <Input
-                type="number"
-                value={editForm.marks}
-                onChange={(e) => setEditForm((p) => ({ ...p, marks: e.target.value }))}
-                placeholder="e.g. 87"
-              />
+              <Input type="number" value={editForm.marks} onChange={(e) => setEditForm((p) => ({ ...p, marks: e.target.value }))} placeholder="e.g. 87" />
             </div>
             <div className="space-y-1">
               <Label>Examination</Label>
-              <Input
-                value={editForm.examination}
-                onChange={(e) => setEditForm((p) => ({ ...p, examination: e.target.value }))}
-                placeholder="e.g. Unit Test 1"
-              />
+              <Input value={editForm.examination} onChange={(e) => setEditForm((p) => ({ ...p, examination: e.target.value }))} placeholder="e.g. Unit Test 1" />
             </div>
             <div className="space-y-1">
               <Label>Date</Label>
-              <Input
-                type="date"
-                value={editForm.exam_date}
-                onChange={(e) => setEditForm((p) => ({ ...p, exam_date: e.target.value }))}
-              />
+              <Input type="date" value={editForm.exam_date} onChange={(e) => setEditForm((p) => ({ ...p, exam_date: e.target.value }))} />
             </div>
-
             <div className="rounded-xl border border-border overflow-hidden">
               <Table>
                 <TableHeader>
@@ -582,17 +724,9 @@ export function StudentManagementContent() {
                 </TableHeader>
                 <TableBody>
                   {historyLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center py-4">
-                        <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
-                      </TableCell>
-                    </TableRow>
+                    <TableRow><TableCell colSpan={4} className="text-center py-4"><Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" /></TableCell></TableRow>
                   ) : historyRows.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground py-4">
-                        No tests added yet.
-                      </TableCell>
-                    </TableRow>
+                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-4">No tests added yet.</TableCell></TableRow>
                   ) : (
                     historyRows.map((row) => (
                       <TableRow key={`edit-${row.id || 0}-${row.exam_date}-${row.subject}`}>
@@ -607,12 +741,112 @@ export function StudentManagementContent() {
               </Table>
             </div>
           </div>
-
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
             <Button onClick={saveEdit} disabled={savingEdit}>
               {savingEdit && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Add Test
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Import Dialog ────────────────────────────────────────────────── */}
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Import Students
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Format hint */}
+            <div className="rounded-lg bg-muted/60 p-3 text-sm text-muted-foreground space-y-1">
+              <p className="font-medium text-foreground">Supported formats: CSV &amp; JSON</p>
+              <p>CSV columns: <code className="text-xs bg-background rounded px-1">id, name, phone, father_phone, subject, marks, examination, exam_date, standard, board, location</code></p>
+              <p>JSON: array of objects with the same keys.</p>
+            </div>
+
+            {/* File picker */}
+            <div
+              className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border p-8 cursor-pointer hover:bg-muted/40 transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <div className="flex gap-3">
+                <FileText className="h-8 w-8 text-emerald-500" />
+                <FileJson className="h-8 w-8 text-blue-500" />
+              </div>
+              <p className="text-sm font-medium">Click to choose a CSV or JSON file</p>
+              {importFile && (
+                <p className="text-xs text-muted-foreground">{importFile.name}</p>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,.json"
+                className="hidden"
+                onChange={handleImportFileChange}
+              />
+            </div>
+
+            {/* Error */}
+            {importError && (
+              <p className="text-sm text-red-500 rounded-lg bg-red-50 px-3 py-2">{importError}</p>
+            )}
+
+            {/* Preview */}
+            {importPreview.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">
+                  Preview — {importPreview.length} student{importPreview.length !== 1 ? "s" : ""} found
+                </p>
+                <div className="rounded-xl border border-border overflow-auto max-h-52">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead>Std</TableHead>
+                        <TableHead>Board</TableHead>
+                        <TableHead>Location</TableHead>
+                        <TableHead>Marks</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {importPreview.slice(0, 10).map((s, i) => (
+                        <TableRow key={i}>
+                          <TableCell>{s.name || "—"}</TableCell>
+                          <TableCell>{s.phone || "—"}</TableCell>
+                          <TableCell>{s.standard || "—"}</TableCell>
+                          <TableCell>{s.board || "—"}</TableCell>
+                          <TableCell>{s.location || "—"}</TableCell>
+                          <TableCell>{s.marks !== undefined ? s.marks : "—"}</TableCell>
+                        </TableRow>
+                      ))}
+                      {importPreview.length > 10 && (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center text-xs text-muted-foreground py-2">
+                            …and {importPreview.length - 10} more
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportOpen(false)}>Cancel</Button>
+            <Button
+              onClick={confirmImport}
+              disabled={importPreview.length === 0 || importing}
+            >
+              {importing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Import {importPreview.length > 0 ? `${importPreview.length} Students` : ""}
             </Button>
           </DialogFooter>
         </DialogContent>
