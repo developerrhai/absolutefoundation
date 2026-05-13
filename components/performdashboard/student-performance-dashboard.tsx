@@ -81,10 +81,10 @@ function buildDashboardData(
   rows: AssessmentRow[],
   totalStudents: number
 ): DashboardData {
-  const subjectMap = new Map
-    string,
-    { latest?: AssessmentRow; previous?: AssessmentRow }
-  >();
+const subjectMap = new Map<
+  string,
+  { latest?: AssessmentRow; previous?: AssessmentRow }
+>();
 
   for (const row of rows) {
     if (!row?.subject) continue;
