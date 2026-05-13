@@ -333,6 +333,7 @@ export function StudentManagementContent() {
   const [editForm, setEditForm] = useState({
     subject: "",
     marks: "",
+    total_marks: "",
     examination: "",
     exam_date: "",
   });
@@ -685,12 +686,22 @@ export function StudentManagementContent() {
       alert("Marks must be a valid non-negative number");
       return;
     }
+    const totalMarksNum = editForm.total_marks !== "" ? Number(editForm.total_marks) : undefined;
+    if (totalMarksNum !== undefined && (Number.isNaN(totalMarksNum) || totalMarksNum < 0)) {
+      alert("Total Marks must be a valid non-negative number");
+      return;
+    }
+    if (totalMarksNum !== undefined && marksNum > totalMarksNum) {
+      alert("Marks obtained cannot be greater than Total Marks");
+      return;
+    }
 
     setSavingEdit(true);
     try {
       await teacherStudentAssessmentsApi.createByStudent(selectedStudent.id, {
         subject: editForm.subject,
         marks: marksNum,
+        ...(totalMarksNum !== undefined && { total_marks: totalMarksNum }),
         examination: editForm.examination,
         exam_date: editForm.exam_date,
       });
@@ -713,7 +724,7 @@ export function StudentManagementContent() {
             : s
         )
       );
-      setEditForm({ subject: "", marks: "", examination: "", exam_date: new Date().toISOString().split("T")[0] });
+      setEditForm({ subject: "", marks: "", total_marks: "", examination: "", exam_date: new Date().toISOString().split("T")[0] });
       setEditOpen(false);
     } catch (err: any) {
       alert(err.message || "Failed to save");
@@ -1050,8 +1061,12 @@ export function StudentManagementContent() {
               <Input value={editForm.subject} onChange={(e) => setEditForm((p) => ({ ...p, subject: e.target.value }))} placeholder="e.g. Mathematics" />
             </div>
             <div className="space-y-1">
-              <Label>Marks</Label>
+              <Label>Marks Obtained</Label>
               <Input type="number" value={editForm.marks} onChange={(e) => setEditForm((p) => ({ ...p, marks: e.target.value }))} placeholder="e.g. 87" />
+            </div>
+            <div className="space-y-1">
+              <Label>Total Marks</Label>
+              <Input type="number" value={editForm.total_marks} onChange={(e) => setEditForm((p) => ({ ...p, total_marks: e.target.value }))} placeholder="e.g. 100" />
             </div>
             <div className="space-y-1">
               <Label>Examination</Label>
