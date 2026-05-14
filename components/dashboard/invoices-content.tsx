@@ -43,7 +43,7 @@ interface Student {
 
 interface Summary { total_invoiced: number; total_paid: number; total_pending: number }
 type InvoiceStatus = "Paid" | "Partial" | "Pending" | "Overdue"
-type SendStatus    = "idle" | "pending" | "rendering" | "sending" | "success" | "failed"
+type SendStatus    = "idle" | "pending" | "sending" | "success" | "failed"
 
 interface SendResult {
   invoiceId: number; studentName: string; phone: string
@@ -52,33 +52,22 @@ interface SendResult {
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  RHAITECH CONFIG
-//  Docs: POST https://api.rhaitech.online/api/create-message  (multipart/form-data)
-//  Fields: appkey, authkey, to, template_id, language, file (public URL),
-//          variables[{key}] per variable
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface RhaitechConfig {
-  appkey:              string   // your app key
-  authkey:             string   // your auth key
-  templateId:          string   // numeric template id from rhaitech dashboard
-  language:            string   // e.g. en_us
-  varKeyName:          string   // variable key for student name  e.g. {student_name}
-  varKeyPaid:          string   // variable key for amount paid   e.g. {amount_paid}
-  varKeyBalance:       string   // variable key for balance       e.g. {balance}
-  imageUploadEndpoint: string   // your server endpoint that accepts PNG and returns { url }
+  appkey:     string
+  authkey:    string
+  templateId: string
+  language:   string
 }
 
 const CFG_KEY = "dnyansagar_rhaitech_cfg"
 
 const defaultConfig = (): RhaitechConfig => ({
-  appkey:              "f67908d5-5aa9-49d9-8c56-9572272ea6d0",
-  authkey:             "ppIYRYOlXVAd41QhiCDu6scku4jfJG0vTVBuLpsj395dXCT8wj",
-  templateId:          "",
-  language:            "en_us",
-  varKeyName:          "{student_name}",
-  varKeyPaid:          "{amount_paid}",
-  varKeyBalance:       "{balance}",
-  imageUploadEndpoint: "",
+  appkey:     "f67908d5-5aa9-49d9-8c56-9572272ea6d0",
+  authkey:    "ppIYRYOlXVAd41QhiCDu6scku4jfJG0vTVBuLpsj395dXCT8wj",
+  templateId: "",
+  language:   "en",
 })
 
 const loadCfg = (): RhaitechConfig => {
@@ -106,8 +95,10 @@ const getStatus = (inv: Invoice): InvoiceStatus => {
 }
 
 const statusColor = (s: string) => ({
-  Paid: "bg-emerald-100 text-emerald-700", Partial: "bg-yellow-100 text-yellow-700",
-  Pending: "bg-blue-100 text-blue-700",   Overdue: "bg-red-100 text-red-700",
+  Paid:    "bg-emerald-100 text-emerald-700",
+  Partial: "bg-yellow-100 text-yellow-700",
+  Pending: "bg-blue-100 text-blue-700",
+  Overdue: "bg-red-100 text-red-700",
 }[s] ?? "bg-gray-100 text-gray-700")
 
 const statusIcon = (s: string) => ({
@@ -122,173 +113,26 @@ const fmtINR  = (n: number)  => new Intl.NumberFormat("en-IN").format(Math.round
 const sleep   = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  STEP 1 — Render invoice → PNG Blob  via html2canvas
-//  Install:  npm install html2canvas
+//  BACKEND-POWERED SEND
+//  Calls /api/send-whatsapp-invoice which does:
+//    1. Puppeteer render → PNG
+//    2. Save to /public/invoices/ → public URL
+//    3. Rhaitech WABA API POST
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function buildInvoiceBlob(inv: Invoice): Promise<Blob> {
-  const { default: html2canvas } = await import("html2canvas")
-  const balance = Number(inv.amount) - Number(inv.paid_amount)
-
-  const div = document.createElement("div")
-  div.style.cssText =
-    "position:fixed;top:-9999px;left:-9999px;width:794px;padding:40px 44px;" +
-    "background:#ffffff;font-family:Arial,Helvetica,sans-serif;color:#1a1a2e;"
-
-  div.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;
-      border-bottom:3px solid #1f7fa6;padding-bottom:16px;margin-bottom:20px">
-      <div>
-        <div style="font-size:22px;font-weight:700;color:#1a1a2e">DNYANSAGAR CLASSES</div>
-        <div style="font-size:12px;color:#555;margin-top:3px">
-          201/A, New Excelsior Building, Opp. Crown Hotel, KHADKI, Pune – 411003
-        </div>
-        <div style="font-size:12px;color:#555">Phone: 8862010906 | State: Maharashtra</div>
-      </div>
-      <div style="background:#1f7fa6;color:#fff;padding:8px 18px;border-radius:6px;
-        font-size:13px;font-weight:600;text-align:center">
-        <div>Payment</div><div>Receipt</div>
-      </div>
-    </div>
-
-    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:22px">
-      <div>
-        <div style="font-weight:700;color:#1f7fa6;margin-bottom:6px">BILL TO</div>
-        <div style="font-weight:600">${inv.student_name}</div>
-        <div style="color:#555;margin-top:2px">Contact: ${inv.student_phone || "—"}</div>
-        ${inv.course   ? `<div style="color:#555;margin-top:2px">Course: ${inv.course}</div>` : ""}
-        ${inv.standard ? `<div style="color:#555;margin-top:2px">Class: ${inv.standard}th Std</div>` : ""}
-        <div style="color:#555;margin-top:2px">Desc: ${inv.description || "Course Fee"}</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-weight:700;color:#1f7fa6;margin-bottom:6px">RECEIPT DETAILS</div>
-        <div><b>Receipt No:</b> INV${String(inv.id).padStart(3, "0")}</div>
-        <div style="margin-top:2px"><b>Paid Date:</b> ${fmtDate(inv.install_date)}</div>
-        <div style="margin-top:2px"><b>Due Date:</b>  ${fmtDate(inv.due_date)}</div>
-        <div style="margin-top:2px"><b>Mode:</b>      ${inv.transaction_type || "Cash"}</div>
-      </div>
-    </div>
-
-    <table style="width:100%;border-collapse:collapse;font-size:13px">
-      <tr style="background:#1f7fa6;color:#fff">
-        <th style="padding:10px 12px;text-align:left">Description</th>
-        <th style="padding:10px 12px;text-align:right">Amount</th>
-      </tr>
-      <tr style="border-bottom:1px solid #eee">
-        <td style="padding:9px 12px">${inv.description || "Course Fee"}</td>
-        <td style="padding:9px 12px;text-align:right">₹${fmtINR(Number(inv.amount))}</td>
-      </tr>
-      <tr style="background:#f0faf5">
-        <td style="padding:9px 12px;font-weight:600;color:#197a3e">✅ Amount Paid</td>
-        <td style="padding:9px 12px;text-align:right;font-weight:700;color:#197a3e">
-          ₹${fmtINR(Number(inv.paid_amount))}
-        </td>
-      </tr>
-      <tr style="background:#fff8e1">
-        <td style="padding:9px 12px;font-weight:600;color:#c0392b">📌 Balance Due</td>
-        <td style="padding:9px 12px;text-align:right;font-weight:700;color:#c0392b">
-          ₹${fmtINR(balance)}
-        </td>
-      </tr>
-    </table>
-
-    <div style="margin-top:24px;font-size:11px;color:#888;border-top:1px solid #eee;
-      padding-top:12px;display:flex;justify-content:space-between">
-      <div>
-        Thank you for trusting DNYANSAGAR CLASSES!<br/>
-        <span style="color:#c0392b">Fees once paid will not be refunded.</span>
-      </div>
-      <div>Generated: ${new Date().toLocaleDateString("en-IN")}</div>
-    </div>
-  `
-
-  document.body.appendChild(div)
-  try {
-    const canvas = await html2canvas(div, {
-      scale: 2, useCORS: true, logging: false, backgroundColor: "#ffffff",
-    })
-    return await new Promise<Blob>((res, rej) =>
-      canvas.toBlob(b => b ? res(b) : rej(new Error("Canvas blob failed")), "image/png", 0.95)
-    )
-  } finally {
-    document.body.removeChild(div)
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  STEP 2 — Upload PNG to YOUR server → get a public URL back
-//
-//  Your Next.js API route example  (app/api/upload-invoice/route.ts):
-//
-//  export async function POST(req: Request) {
-//    const form = await req.formData()
-//    const file = form.get("file") as File
-//    const buffer = Buffer.from(await file.arrayBuffer())
-//    const filename = `invoice_${Date.now()}.png`
-//    // save to /public/invoices/ or your cloud storage (S3, Cloudinary, etc.)
-//    fs.writeFileSync(`./public/invoices/${filename}`, buffer)
-//    return Response.json({ url: `${process.env.NEXT_PUBLIC_BASE_URL}/invoices/${filename}` })
-//  }
-// ─────────────────────────────────────────────────────────────────────────────
-
-async function uploadInvoiceImage(blob: Blob, endpoint: string): Promise<string> {
-  const form = new FormData()
-  form.append("file", blob, `invoice_${Date.now()}.png`)
-  const res  = await fetch(endpoint, { method: "POST", body: form })
-  const json = await res.json()
-  if (!res.ok || !json.url) throw new Error(json.message || "Image upload failed — check your endpoint")
-  return json.url as string
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  STEP 3 — Send via Rhaitech WABA API
-//
-//  POST https://api.rhaitech.online/api/create-message
-//  multipart/form-data:
-//    appkey          = your app key
-//    authkey         = your auth key
-//    to              = receiver phone (digits only, with country code)
-//    template_id     = numeric template id
-//    language        = en_us
-//    file            = public URL of invoice image
-//    variables[{k}]  = variable value  (one field per variable)
-// ─────────────────────────────────────────────────────────────────────────────
-
-async function sendViaRhaitech({
-  to, fileUrl, studentName, amountPaid, balance, cfg,
-}: {
-  to: string; fileUrl: string; studentName: string
-  amountPaid: string; balance: string; cfg: RhaitechConfig
-}): Promise<string> {
-  const form = new FormData()
-  form.append("appkey",      cfg.appkey)
-  form.append("authkey",     cfg.authkey)
-  form.append("to",          to.replace(/\D/g, ""))    // digits only, e.g. 919876543210
-  form.append("template_id", cfg.templateId)
-  form.append("language",    cfg.language || "en_us")
-  form.append("file",        fileUrl)
-
-  // Variable keys must match EXACTLY the keys defined in your Rhaitech template
-  form.append(`variables[${cfg.varKeyName}]`,    studentName)
-  form.append(`variables[${cfg.varKeyPaid}]`,    amountPaid)
-  form.append(`variables[${cfg.varKeyBalance}]`, balance)
-
-  const res  = await fetch("https://api.rhaitech.online/api/create-message", {
-    method: "POST",
-    body:   form,
-    // No Content-Type header — browser sets multipart boundary automatically
+async function sendInvoiceViaBackend(inv: Invoice, config: RhaitechConfig): Promise<string> {
+  const res  = await fetch("/api/send-whatsapp-invoice", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ invoice: inv, config }),
   })
   const json = await res.json()
-
-  // Rhaitech response: { status: true, message: "...", id: "123" }
-  if (!res.ok || json.status === false)
-    throw new Error(json.message || `Rhaitech error HTTP ${res.status}`)
-
-  return String(json.id ?? json.message_id ?? "sent")
+  if (!res.ok || json.error) throw new Error(json.error || `HTTP ${res.status}`)
+  return json.msgId as string
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  SETTINGS DIALOG
+//  SETTINGS DIALOG  (simplified — no image endpoint needed, it's handled server-side)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function RhaitechSettingsDialog({
@@ -302,7 +146,7 @@ function RhaitechSettingsDialog({
   const f = (k: keyof RhaitechConfig) =>
     (e: React.ChangeEvent<HTMLInputElement>) => setLocal(p => ({ ...p, [k]: e.target.value }))
 
-  const ready = !!(local.templateId && local.imageUploadEndpoint)
+  const ready = !!local.templateId
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -310,112 +154,77 @@ function RhaitechSettingsDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="h-5 w-5 text-green-600" />
-            Rhaitech WABA — Bulk Sender Settings
+            Rhaitech WABA — Settings
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 pt-1">
 
+          {/* How it works */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800 space-y-1">
+            <p className="font-semibold">🚀 How Bulk Send works (backend-powered)</p>
+            <ol className="list-decimal list-inside space-y-0.5">
+              <li>Click <b>Bulk Send</b> → select invoices</li>
+              <li>Server renders each invoice → PNG using Puppeteer</li>
+              <li>PNG saved to <code className="bg-blue-100 px-1 rounded">/public/invoices/</code> → gets a public URL</li>
+              <li>Rhaitech WABA API sends the image + template to the student's WhatsApp</li>
+            </ol>
+            <p className="mt-1 text-blue-600 font-semibold">
+              No html2canvas. No image upload endpoint needed. Runs entirely on your server.
+            </p>
+          </div>
+
           {/* API Credentials */}
-          <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               API Credentials
             </p>
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label>App Key</Label>
-                <Input value={local.appkey} onChange={f("appkey")} placeholder="f67908d5-..." />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Auth Key</Label>
-                <Input value={local.authkey} onChange={f("authkey")} type="password" placeholder="ppIYRYOl..." />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Template ID <span className="text-red-500">*</span></Label>
-                  <Input value={local.templateId} onChange={f("templateId")} placeholder="123456" />
-                  <p className="text-xs text-muted-foreground">Numeric ID from Rhaitech dashboard</p>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Language</Label>
-                  <Input value={local.language} onChange={f("language")} placeholder="en_us" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Variable Keys */}
-          <div className="border-t pt-4">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-              Template Variable Keys
-            </p>
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3 text-xs text-amber-800">
-              <p className="font-semibold mb-1">📋 How to find your variable keys:</p>
-              <ol className="list-decimal list-inside space-y-0.5">
-                <li>Login to Rhaitech → Templates → open your fee receipt template</li>
-                <li>Copy each variable key exactly as shown, e.g. <code className="bg-amber-100 px-1 rounded">{"{student_name}"}</code></li>
-                <li>Paste them in the fields below — must match character-for-character</li>
-              </ol>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Student Name Key</Label>
-                <Input value={local.varKeyName} onChange={f("varKeyName")} placeholder="{student_name}" className="text-sm" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Amount Paid Key</Label>
-                <Input value={local.varKeyPaid} onChange={f("varKeyPaid")} placeholder="{amount_paid}" className="text-sm" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Balance Key</Label>
-                <Input value={local.varKeyBalance} onChange={f("varKeyBalance")} placeholder="{balance}" className="text-sm" />
-              </div>
-            </div>
-          </div>
-
-          {/* Image Upload */}
-          <div className="border-t pt-4">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-              Invoice Image Upload Endpoint <span className="text-red-500">*</span>
-            </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3 text-xs text-blue-800 space-y-1">
-              <p className="font-semibold">ℹ️ Why is this needed?</p>
-              <p>
-                Rhaitech's <code className="bg-blue-100 px-1 rounded">file</code> field requires a{" "}
-                <b>public HTTPS URL</b>. We render the invoice as a PNG and upload it to your server
-                first, then pass the URL to Rhaitech.
-              </p>
-              <p className="font-semibold mt-1">Your endpoint must:</p>
-              <code className="block bg-blue-100 rounded px-2 py-1">
-                POST multipart/form-data {"{ file: <PNG blob> }"}
-              </code>
-              <code className="block bg-blue-100 rounded px-2 py-1 mt-1">
-                {'→ return JSON: { "url": "https://yourdomain.com/invoices/abc.png" }'}
-              </code>
-              <p className="mt-1 text-blue-600">
-                Add <code className="bg-blue-100 px-1 rounded">app/api/upload-invoice/route.ts</code> to
-                your Next.js project (see comments in source code).
-              </p>
+            <div className="space-y-1.5">
+              <Label>App Key</Label>
+              <Input value={local.appkey} onChange={f("appkey")} placeholder="f67908d5-..." />
             </div>
             <div className="space-y-1.5">
-              <Label>Endpoint URL</Label>
-              <Input
-                value={local.imageUploadEndpoint}
-                onChange={f("imageUploadEndpoint")}
-                placeholder="https://yourserver.com/api/upload-invoice"
-              />
+              <Label>Auth Key</Label>
+              <Input value={local.authkey} onChange={f("authkey")} type="password" placeholder="ppIYRYOl..." />
             </div>
           </div>
 
-          {/* Status indicator */}
+          {/* Template */}
+          <div className="border-t pt-4 space-y-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Template Settings
+            </p>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
+              <p className="font-semibold mb-1">📋 Your template uses positional variables:</p>
+              <code className="block bg-amber-100 px-2 py-1 rounded mt-1 whitespace-pre-wrap">
+{`{"{{1}}"} → Student Name
+{"{{2}}"} → Amount Paid
+{"{{3}}"} → Balance`}
+              </code>
+              <p className="mt-2">Template ID: <b>recift</b> (enter the numeric ID from your Rhaitech dashboard)</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Template ID <span className="text-red-500">*</span></Label>
+                <Input value={local.templateId} onChange={f("templateId")} placeholder="e.g. 123456" />
+                <p className="text-xs text-muted-foreground">Numeric ID from Rhaitech dashboard</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Language</Label>
+                <Input value={local.language} onChange={f("language")} placeholder="en" />
+              </div>
+            </div>
+          </div>
+
+          {/* Status */}
           {ready
             ? <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
-                All set! Ready to send bulk invoices via WhatsApp.
+                Ready to send bulk invoices via WhatsApp!
               </div>
             : <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
-                Fill in Template ID and Upload Endpoint to enable bulk sending.
+                Enter your Template ID to enable bulk sending.
               </div>
           }
         </div>
@@ -432,7 +241,7 @@ function RhaitechSettingsDialog({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  BULK SENDER DIALOG
+//  WHATSAPP ICON
 // ─────────────────────────────────────────────────────────────────────────────
 
 const WAIcon = () => (
@@ -441,17 +250,21 @@ const WAIcon = () => (
   </svg>
 )
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  BULK SENDER DIALOG
+// ─────────────────────────────────────────────────────────────────────────────
+
 function BulkSenderDialog({
   open, onClose, invoices, config,
 }: {
   open: boolean; onClose: () => void
   invoices: Invoice[]; config: RhaitechConfig
 }) {
-  const [selected,     setSelected]     = useState<Set<number>>(new Set())
-  const [results,      setResults]      = useState<SendResult[]>([])
-  const [running,      setRunning]      = useState(false)
-  const [step,         setStep]         = useState<"select" | "sending" | "done">("select")
-  const [showMissing,  setShowMissing]  = useState(false)
+  const [selected,    setSelected]    = useState<Set<number>>(new Set())
+  const [results,     setResults]     = useState<SendResult[]>([])
+  const [running,     setRunning]     = useState(false)
+  const [step,        setStep]        = useState<"select" | "sending" | "done">("select")
+  const [showMissing, setShowMissing] = useState(false)
   const abortRef = useRef(false)
 
   const eligible = invoices.filter(inv => !!inv.student_phone)
@@ -476,9 +289,6 @@ function BulkSenderDialog({
     if (!config.templateId) {
       alert("Template ID missing — open Setup WABA and fill it in."); return
     }
-    if (!config.imageUploadEndpoint) {
-      alert("Image Upload Endpoint missing — open Setup WABA and fill it in."); return
-    }
     const toSend = eligible.filter(inv => selected.has(inv.id))
     if (!toSend.length) { alert("Select at least one invoice."); return }
 
@@ -495,31 +305,15 @@ function BulkSenderDialog({
         setResult(inv.id, { status: "failed", error: "Stopped by user" })
         continue
       }
+      setResult(inv.id, { status: "sending" })
       try {
-        // 1. Render → PNG
-        setResult(inv.id, { status: "rendering" })
-        const blob = await buildInvoiceBlob(inv)
-
-        // 2. Upload PNG → public URL
-        setResult(inv.id, { status: "sending" })
-        const fileUrl = await uploadInvoiceImage(blob, config.imageUploadEndpoint)
-
-        // 3. Send via Rhaitech
-        const paid    = Number(inv.paid_amount)
-        const balance = Number(inv.amount) - paid
-        const msgId   = await sendViaRhaitech({
-          to: inv.student_phone!,
-          fileUrl,
-          studentName: inv.student_name,
-          amountPaid:  fmtINR(paid),
-          balance:     fmtINR(balance),
-          cfg:         config,
-        })
+        // ── All rendering + uploading + sending happens on the server
+        const msgId = await sendInvoiceViaBackend(inv, config)
         setResult(inv.id, { status: "success", msgId })
       } catch (err: any) {
         setResult(inv.id, { status: "failed", error: err?.message || "Unknown error" })
       }
-      await sleep(500)   // ~2 msg/s — safe rate limit
+      await sleep(800)   // ~1.25 msg/s — safe rate limit buffer
     }
 
     setRunning(false)
@@ -529,19 +323,18 @@ function BulkSenderDialog({
   const counts = {
     success: results.filter(r => r.status === "success").length,
     failed:  results.filter(r => r.status === "failed").length,
-    pending: results.filter(r => ["pending","rendering","sending"].includes(r.status)).length,
+    pending: results.filter(r => ["pending","sending"].includes(r.status)).length,
   }
 
   const sendBadge = (s: SendStatus) => {
-    const cfg: Record<SendStatus, { label: string; cls: string; icon: React.ReactNode }> = {
-      idle:      { label: "Idle",      cls: "bg-gray-100 text-gray-600",       icon: <Clock className="h-3 w-3"/> },
-      pending:   { label: "Queued",    cls: "bg-blue-100 text-blue-700",       icon: <Clock className="h-3 w-3"/> },
-      rendering: { label: "Rendering", cls: "bg-yellow-100 text-yellow-700",   icon: <Loader2 className="h-3 w-3 animate-spin"/> },
-      sending:   { label: "Sending",   cls: "bg-purple-100 text-purple-700",   icon: <Loader2 className="h-3 w-3 animate-spin"/> },
-      success:   { label: "Sent ✓",    cls: "bg-emerald-100 text-emerald-700", icon: <CheckCircle2 className="h-3 w-3"/> },
-      failed:    { label: "Failed",    cls: "bg-red-100 text-red-700",         icon: <XCircle className="h-3 w-3"/> },
+    const map: Record<SendStatus, { label: string; cls: string; icon: React.ReactNode }> = {
+      idle:    { label: "Idle",    cls: "bg-gray-100 text-gray-600",       icon: <Clock className="h-3 w-3"/> },
+      pending: { label: "Queued", cls: "bg-blue-100 text-blue-700",       icon: <Clock className="h-3 w-3"/> },
+      sending: { label: "Sending",cls: "bg-purple-100 text-purple-700",   icon: <Loader2 className="h-3 w-3 animate-spin"/> },
+      success: { label: "Sent ✓", cls: "bg-emerald-100 text-emerald-700", icon: <CheckCircle2 className="h-3 w-3"/> },
+      failed:  { label: "Failed", cls: "bg-red-100 text-red-700",         icon: <XCircle className="h-3 w-3"/> },
     }
-    const m = cfg[s]
+    const m = map[s]
     return <Badge className={`${m.cls} flex items-center gap-1 text-xs px-2`}>{m.icon}{m.label}</Badge>
   }
 
@@ -556,7 +349,7 @@ function BulkSenderDialog({
           </div>
           <div>
             <h2 className="text-white font-semibold text-base leading-tight">Bulk WhatsApp Invoice Sender</h2>
-            <p className="text-green-100 text-xs">Powered by Rhaitech WABA API</p>
+            <p className="text-green-100 text-xs">Powered by Rhaitech WABA · Server-side PDF rendering</p>
           </div>
         </div>
 
@@ -565,7 +358,6 @@ function BulkSenderDialog({
           {/* ── SELECT ─────────────────────────────────────────── */}
           {step === "select" && (
             <>
-              {/* Summary pills */}
               <div className="grid grid-cols-3 gap-3">
                 {[
                   { label: "With Phone",  value: eligible.length, bg: "bg-green-50 border-green-200",  text: "text-green-700",  sub: "text-green-600" },
@@ -579,7 +371,6 @@ function BulkSenderDialog({
                 ))}
               </div>
 
-              {/* No-phone alert */}
               {noPhone.length > 0 && (
                 <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -590,7 +381,16 @@ function BulkSenderDialog({
                 </div>
               )}
 
-              {/* Select-all row */}
+              {/* How it works info banner */}
+              <div className="flex items-start gap-2 text-xs text-blue-700 bg-blue-50 border border-blue-200 px-3 py-2 rounded-lg">
+                <Zap className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>
+                  Each invoice is rendered as a <b>PNG image on the server</b> using Puppeteer,
+                  then sent directly to the student's WhatsApp via Rhaitech WABA
+                  with template <b>recift</b>.
+                </span>
+              </div>
+
               <div className="flex items-center justify-between px-1">
                 <div className="flex items-center gap-2">
                   <Checkbox
@@ -605,7 +405,6 @@ function BulkSenderDialog({
                 <span className="text-xs text-muted-foreground">{selected.size} selected</span>
               </div>
 
-              {/* Invoice table */}
               <div className="overflow-y-auto flex-1 rounded-xl border">
                 <Table>
                   <TableHeader>
@@ -621,8 +420,8 @@ function BulkSenderDialog({
                   </TableHeader>
                   <TableBody>
                     {(showMissing ? noPhone : eligible).map(inv => {
-                      const bal = Number(inv.amount) - Number(inv.paid_amount)
-                      const st  = getStatus(inv)
+                      const bal  = Number(inv.amount) - Number(inv.paid_amount)
+                      const st   = getStatus(inv)
                       const isSel = selected.has(inv.id)
                       return (
                         <TableRow
@@ -644,9 +443,7 @@ function BulkSenderDialog({
                             {inv.student_phone || <span className="text-red-400 text-xs">Missing</span>}
                           </TableCell>
                           <TableCell className="text-sm">₹{fmtINR(Number(inv.amount))}</TableCell>
-                          <TableCell className="text-sm text-emerald-600 font-medium">
-                            ₹{fmtINR(Number(inv.paid_amount))}
-                          </TableCell>
+                          <TableCell className="text-sm text-emerald-600 font-medium">₹{fmtINR(Number(inv.paid_amount))}</TableCell>
                           <TableCell className={`text-sm font-medium ${bal > 0 ? "text-red-600" : "text-emerald-600"}`}>
                             ₹{fmtINR(bal)}
                           </TableCell>
@@ -661,7 +458,7 @@ function BulkSenderDialog({
                         <TableCell colSpan={7} className="text-center py-10 text-muted-foreground text-sm">
                           {showMissing
                             ? "No invoices with missing phone numbers."
-                            : "No invoices with phone numbers found. Add phone numbers to students first."}
+                            : "No invoices with phone numbers. Add phone numbers to students first."}
                         </TableCell>
                       </TableRow>
                     )}
@@ -677,7 +474,9 @@ function BulkSenderDialog({
                   className="bg-green-600 hover:bg-green-700 text-white"
                 >
                   <Send className="h-4 w-4 mr-2" />
-                  Send {selected.size > 0 ? `${selected.size} Invoice${selected.size > 1 ? "s" : ""}` : "Invoices"} via WhatsApp
+                  Send {selected.size > 0
+                    ? `${selected.size} Invoice${selected.size > 1 ? "s" : ""}`
+                    : "Invoices"} via WhatsApp
                 </Button>
               </DialogFooter>
             </>
@@ -686,7 +485,6 @@ function BulkSenderDialog({
           {/* ── SENDING / DONE ──────────────────────────────────── */}
           {(step === "sending" || step === "done") && (
             <>
-              {/* Progress summary */}
               <div className="grid grid-cols-3 gap-3">
                 {[
                   { label: "Sent",      value: counts.success, bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700", sub: "text-emerald-600" },
@@ -706,7 +504,7 @@ function BulkSenderDialog({
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-green-700">Sending in progress…</p>
                     <p className="text-xs text-green-600">
-                      Rendering PNG → Uploading to server → Posting to Rhaitech WABA API
+                      Server: Puppeteer render → PNG save → Rhaitech WABA API
                     </p>
                   </div>
                   <Button size="sm" variant="outline"
@@ -733,7 +531,6 @@ function BulkSenderDialog({
                 </div>
               )}
 
-              {/* Per-invoice log */}
               <div className="overflow-y-auto flex-1 rounded-xl border">
                 <Table>
                   <TableHeader>
@@ -751,11 +548,10 @@ function BulkSenderDialog({
                         <TableCell className="text-sm text-muted-foreground">{r.phone}</TableCell>
                         <TableCell>{sendBadge(r.status)}</TableCell>
                         <TableCell className="text-xs max-w-[220px] truncate">
-                          {r.status === "success"   && <span className="text-emerald-600">Msg ID: {r.msgId}</span>}
-                          {r.status === "failed"    && <span className="text-red-500" title={r.error}>{r.error}</span>}
-                          {r.status === "rendering" && <span className="text-yellow-600">Generating invoice image…</span>}
-                          {r.status === "sending"   && <span className="text-purple-600">Uploading &amp; posting to Rhaitech…</span>}
-                          {r.status === "pending"   && <span className="text-blue-500">In queue…</span>}
+                          {r.status === "success" && <span className="text-emerald-600">Msg ID: {r.msgId}</span>}
+                          {r.status === "failed"  && <span className="text-red-500" title={r.error}>{r.error}</span>}
+                          {r.status === "sending" && <span className="text-purple-600">Rendering &amp; sending via server…</span>}
+                          {r.status === "pending" && <span className="text-blue-500">In queue…</span>}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -794,12 +590,10 @@ export function InvoicesContent() {
   const [editing,       setEditing]       = useState<Invoice | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Rhaitech
   const [rhaitechCfg,    setRhaitechCfg]    = useState<RhaitechConfig>(loadCfg)
   const [settingsOpen,   setSettingsOpen]   = useState(false)
   const [bulkSenderOpen, setBulkSenderOpen] = useState(false)
 
-  // Student search
   const [students,        setStudents]        = useState<Student[]>([])
   const [studentSearch,   setStudentSearch]   = useState("")
   const [showDropdown,    setShowDropdown]    = useState(false)
@@ -979,12 +773,11 @@ export function InvoicesContent() {
   const filteredInvoices = invoices.filter(inv =>
     inv.student_name?.toLowerCase().includes(studentFilter.trim().toLowerCase())
   )
-  const cfgReady = !!(rhaitechCfg.templateId && rhaitechCfg.imageUploadEndpoint)
+  const cfgReady = !!rhaitechCfg.templateId
 
   return (
     <div className="space-y-6 pt-12 lg:pt-0">
 
-      {/* Dialogs */}
       <RhaitechSettingsDialog
         open={settingsOpen} onClose={() => setSettingsOpen(false)}
         config={rhaitechCfg} onSave={cfg => { setRhaitechCfg(cfg); saveCfg(cfg) }}
@@ -1036,7 +829,6 @@ export function InvoicesContent() {
               {importing?"Importing…":"Import CSV"}
             </Button>
 
-            {/* ── WABA Settings button ── */}
             <Button
               variant="outline"
               onClick={() => setSettingsOpen(true)}
@@ -1048,7 +840,6 @@ export function InvoicesContent() {
               {cfgReady ? "WABA ✓" : "Setup WABA"}
             </Button>
 
-            {/* ── Bulk Send button ── */}
             <Button
               onClick={() => cfgReady ? setBulkSenderOpen(true) : setSettingsOpen(true)}
               className="bg-green-600 hover:bg-green-700 text-white"
