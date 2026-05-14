@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, GraduationCap, Download, Loader2 } from "lucide-react";
+import { ArrowLeft, GraduationCap, Download, Loader2, MessageCircle } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "../ui/button";
 import { StudentProfile } from "../performdashboard/student-profile";
@@ -61,14 +61,8 @@ type DashboardData = {
 };
 
 const SUBJECT_COLORS = [
-  "#22c55e",
-  "#3b82f6",
-  "#eab308",
-  "#8b5cf6",
-  "#f97316",
-  "#06b6d4",
-  "#ef4444",
-  "#84cc16",
+  "#22c55e","#3b82f6","#eab308","#8b5cf6",
+  "#f97316","#06b6d4","#ef4444","#84cc16",
 ];
 
 function toNum(value: unknown) {
@@ -81,16 +75,12 @@ function buildDashboardData(
   rows: AssessmentRow[],
   totalStudents: number
 ): DashboardData {
-  const subjectMap = new Map<
-    string,
-    { latest?: AssessmentRow; previous?: AssessmentRow }
-  >();
+  const subjectMap = new Map<string, { latest?: AssessmentRow; previous?: AssessmentRow }>();
 
   for (const row of rows) {
     if (!row?.subject) continue;
     const key = row.subject.trim();
     if (!key) continue;
-
     if (!subjectMap.has(key)) {
       subjectMap.set(key, { latest: row });
     } else {
@@ -99,32 +89,25 @@ function buildDashboardData(
     }
   }
 
-  const subjects = Array.from(subjectMap.entries()).map(([name, value], index) => {
-    const marks = toNum(value.latest?.marks);
-    return {
-      name,
-      marks,
-      total: 100,
-      color: SUBJECT_COLORS[index % SUBJECT_COLORS.length],
-    };
-  });
+  const subjects = Array.from(subjectMap.entries()).map(([name, value], index) => ({
+    name,
+    marks: toNum(value.latest?.marks),
+    total: 100,
+    color: SUBJECT_COLORS[index % SUBJECT_COLORS.length],
+  }));
 
   const thisTermTotal = subjects.reduce((sum, s) => sum + s.marks, 0);
   const thisTermCount = subjects.length;
   const averageMarks = thisTermCount > 0 ? thisTermTotal / thisTermCount : 0;
 
-  const previousTermMarks = Array.from(subjectMap.values()).map((value) =>
-    toNum(value.previous?.marks)
-  );
+  const previousTermMarks = Array.from(subjectMap.values()).map((v) => toNum(v.previous?.marks));
   const prevCount = previousTermMarks.filter((m) => m > 0).length;
-  const prevAverage =
-    prevCount > 0
-      ? previousTermMarks.reduce((sum, mark) => sum + mark, 0) / prevCount
-      : 0;
+  const prevAverage = prevCount > 0
+    ? previousTermMarks.reduce((sum, mark) => sum + mark, 0) / prevCount
+    : 0;
 
   const overallPercentage = Number(averageMarks.toFixed(1));
   const averageChange = Number((averageMarks - prevAverage).toFixed(1));
-  const percentageChange = averageChange;
 
   const performanceData = Array.from(subjectMap.entries()).map(([subject, value]) => ({
     subject,
@@ -140,7 +123,7 @@ function buildDashboardData(
     location: student.location || studentData.location,
     stats: {
       overallPercentage,
-      percentageChange,
+      percentageChange: averageChange,
       averageMarks: Number(averageMarks.toFixed(1)),
       totalMarks: 100,
       averageChange,
@@ -151,68 +134,123 @@ function buildDashboardData(
       attendanceChange: 0,
     },
     subjects: subjects.length > 0 ? subjects : studentData.subjects,
-    performanceData:
-      performanceData.length > 0 ? performanceData : studentData.performanceData,
+    performanceData: performanceData.length > 0 ? performanceData : studentData.performanceData,
   };
 }
 
-// ─── Report HTML builder ─────────────────────────────────────────────────────
+// ─── WhatsApp Message Builder ─────────────────────────────────────────────────
 
-function generateReportHTML(data: DashboardData): string {
+function buildWhatsAppMessage(data: DashboardData): string {
   const generatedOn = new Date().toLocaleDateString("en-IN", {
     day: "2-digit",
     month: "long",
     year: "numeric",
   });
 
-  const subjectRows = data.subjects
+  const grade = (pct: number) =>
+    pct >= 90 ? "A+" : pct >= 80 ? "A" : pct >= 70 ? "B+" : pct >= 60 ? "B" : pct >= 50 ? "C" : "D";
+
+  const subjectLines = data.subjects
     .map((s) => {
       const pct = ((s.marks / s.total) * 100).toFixed(1);
-      const pctNum = Number(pct);
-      const grade =
-        pctNum >= 90 ? "A+" :
-        pctNum >= 80 ? "A"  :
-        pctNum >= 70 ? "B+" :
-        pctNum >= 60 ? "B"  :
-        pctNum >= 50 ? "C"  : "D";
-      const barW = Math.max(0, Math.min(100, pctNum));
-      const badgeBg  = pctNum >= 75 ? "#dcfce7" : pctNum >= 50 ? "#fef9c3" : "#fee2e2";
-      const badgeFg  = pctNum >= 75 ? "#15803d" : pctNum >= 50 ? "#854d0e" : "#b91c1c";
-      return `
-        <tr>
-          <td style="padding:10px 12px;font-weight:500;color:#1e293b">${s.name}</td>
-          <td style="padding:10px 12px;text-align:center;color:#475569">${s.marks}</td>
-          <td style="padding:10px 12px;text-align:center;color:#475569">${s.total}</td>
-          <td style="padding:10px 12px;text-align:center;color:#475569">${pct}%</td>
-          <td style="padding:10px 12px;text-align:center">
-            <span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:12px;
-              font-weight:700;background:${badgeBg};color:${badgeFg}">${grade}</span>
-          </td>
-          <td style="padding:10px 12px">
-            <div style="background:#e2e8f0;border-radius:4px;height:8px;width:100%;min-width:80px">
-              <div style="background:${s.color};height:8px;border-radius:4px;width:${barW}%"></div>
-            </div>
-          </td>
-        </tr>`;
+      return `  • ${s.name}: ${s.marks}/${s.total} (${pct}%) — ${grade(Number(pct))}`;
     })
-    .join("");
+    .join("\n");
 
-  const compRows = data.performanceData
-    .map((p) => {
-      const diff = p.thisTerm - p.lastTerm;
-      const arrow = diff > 0 ? "&#9650;" : diff < 0 ? "&#9660;" : "&#8212;";
-      const color = diff > 0 ? "#16a34a" : diff < 0 ? "#dc2626" : "#94a3b8";
-      return `
-        <tr>
-          <td style="padding:10px 12px;font-weight:500;color:#1e293b">${p.subject}</td>
-          <td style="padding:10px 12px;text-align:center;color:#475569">${p.lastTerm}</td>
-          <td style="padding:10px 12px;text-align:center;color:#475569">${p.thisTerm}</td>
-          <td style="padding:10px 12px;text-align:center;font-weight:700;color:${color}">
-            ${arrow} ${Math.abs(diff)}
-          </td>
-        </tr>`;
-    })
-    .join("");
+  const changeArrow = (v: number) => (v > 0 ? "📈" : v < 0 ? "📉" : "➡️");
+
+  const message = `
+🎓 *Student Performance Report*
+📅 ${generatedOn}
+━━━━━━━━━━━━━━━━━━━━
+👤 *Student:* ${data.name}
+🏫 *Class:* ${data.class} | *Board:* ${data.board}
+📍 *Location:* ${data.location}
+📞 *Contact:* ${data.phone}
+
+━━━━━━━━━━━━━━━━━━━━
+📊 *Performance Summary*
+━━━━━━━━━━━━━━━━━━━━
+Overall %: *${data.stats.overallPercentage}%* ${changeArrow(data.stats.percentageChange)} (${data.stats.percentageChange > 0 ? "+" : ""}${data.stats.percentageChange}% vs Last Term)
+Avg Marks: *${data.stats.averageMarks} / ${data.stats.totalMarks}*
+Class Rank: *${data.stats.classRank} of ${data.stats.totalStudents}*
+Attendance: *${data.stats.attendance}%*
+
+━━━━━━━━━━━━━━━━━━━━
+📚 *Subject-wise Marks*
+━━━━━━━━━━━━━━━━━━━━
+${subjectLines}
+
+━━━━━━━━━━━━━━━━━━━━
+_Vidyaaniketan Professional Academy_
+`.trim();
+
+  return message;
+}
+
+function sendWhatsApp(phone: string, data: DashboardData) {
+  // Clean phone number — remove spaces, dashes, brackets
+  // Add India country code (+91) if not already present
+  let cleaned = phone.replace(/[\s\-().]/g, "");
+  if (!cleaned.startsWith("+") && !cleaned.startsWith("91")) {
+    cleaned = "91" + cleaned;
+  }
+  cleaned = cleaned.replace(/^\+/, "");
+
+  const message = buildWhatsAppMessage(data);
+  const encoded = encodeURIComponent(message);
+  const url = `https://wa.me/${cleaned}?text=${encoded}`;
+  window.open(url, "_blank");
+}
+
+// ─── Report HTML builder ─────────────────────────────────────────────────────
+
+function generateReportHTML(data: DashboardData): string {
+  const generatedOn = new Date().toLocaleDateString("en-IN", {
+    day: "2-digit", month: "long", year: "numeric",
+  });
+
+  const subjectRows = data.subjects.map((s) => {
+    const pct = ((s.marks / s.total) * 100).toFixed(1);
+    const pctNum = Number(pct);
+    const grade =
+      pctNum >= 90 ? "A+" : pctNum >= 80 ? "A" : pctNum >= 70 ? "B+" :
+      pctNum >= 60 ? "B" : pctNum >= 50 ? "C" : "D";
+    const barW = Math.max(0, Math.min(100, pctNum));
+    const badgeBg = pctNum >= 75 ? "#dcfce7" : pctNum >= 50 ? "#fef9c3" : "#fee2e2";
+    const badgeFg = pctNum >= 75 ? "#15803d" : pctNum >= 50 ? "#854d0e" : "#b91c1c";
+    return `
+      <tr>
+        <td style="padding:10px 12px;font-weight:500;color:#1e293b">${s.name}</td>
+        <td style="padding:10px 12px;text-align:center;color:#475569">${s.marks}</td>
+        <td style="padding:10px 12px;text-align:center;color:#475569">${s.total}</td>
+        <td style="padding:10px 12px;text-align:center;color:#475569">${pct}%</td>
+        <td style="padding:10px 12px;text-align:center">
+          <span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:12px;
+            font-weight:700;background:${badgeBg};color:${badgeFg}">${grade}</span>
+        </td>
+        <td style="padding:10px 12px">
+          <div style="background:#e2e8f0;border-radius:4px;height:8px;width:100%;min-width:80px">
+            <div style="background:${s.color};height:8px;border-radius:4px;width:${barW}%"></div>
+          </div>
+        </td>
+      </tr>`;
+  }).join("");
+
+  const compRows = data.performanceData.map((p) => {
+    const diff = p.thisTerm - p.lastTerm;
+    const arrow = diff > 0 ? "&#9650;" : diff < 0 ? "&#9660;" : "&#8212;";
+    const color = diff > 0 ? "#16a34a" : diff < 0 ? "#dc2626" : "#94a3b8";
+    return `
+      <tr>
+        <td style="padding:10px 12px;font-weight:500;color:#1e293b">${p.subject}</td>
+        <td style="padding:10px 12px;text-align:center;color:#475569">${p.lastTerm}</td>
+        <td style="padding:10px 12px;text-align:center;color:#475569">${p.thisTerm}</td>
+        <td style="padding:10px 12px;text-align:center;font-weight:700;color:${color}">
+          ${arrow} ${Math.abs(diff)}
+        </td>
+      </tr>`;
+  }).join("");
 
   const changeClass = (v: number) => (v >= 0 ? "change-pos" : "change-neg");
   const arrow = (v: number) => (v >= 0 ? "&#9650;" : "&#9660;");
@@ -221,7 +259,7 @@ function generateReportHTML(data: DashboardData): string {
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <title>Performance Report &ndash; ${data.name}</title>
+  <title>Performance Report – ${data.name}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0 }
     body { font-family: 'Segoe UI', Arial, sans-serif; background: #fff; color: #1e293b; font-size: 14px }
@@ -230,51 +268,41 @@ function generateReportHTML(data: DashboardData): string {
       .no-print { display: none }
     }
     .page { max-width: 900px; margin: 0 auto; padding: 40px 36px }
-    /* Header */
     .header { display: flex; align-items: center; justify-content: space-between;
       padding-bottom: 20px; border-bottom: 3px solid #0d9488; margin-bottom: 28px }
     .header-left h1 { font-size: 22px; font-weight: 700; color: #0d9488; letter-spacing: -0.5px }
     .header-left p { font-size: 12px; color: #94a3b8; margin-top: 2px }
     .header-badge { background: #0d9488; color: #fff; padding: 6px 16px; border-radius: 20px;
       font-size: 12px; font-weight: 600 }
-    /* Profile */
     .profile-card { background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 12px;
       padding: 20px 24px; display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 24px }
     .profile-field label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .5px }
     .profile-field p { font-size: 15px; font-weight: 600; color: #0f172a; margin-top: 2px }
-    /* Stats */
     .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px }
-    .stat-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
-      padding: 16px; text-align: center }
+    .stat-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; text-align: center }
     .stat-box .label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .5px }
     .stat-box .value { font-size: 26px; font-weight: 700; color: #0f172a; margin: 4px 0 2px }
     .stat-box .sub { font-size: 12px; color: #94a3b8 }
     .change-pos { font-size: 12px; color: #16a34a; font-weight: 600 }
     .change-neg { font-size: 12px; color: #dc2626; font-weight: 600 }
-    /* Section headings */
     .section-title { font-size: 14px; font-weight: 700; color: #0f172a;
       border-left: 4px solid #0d9488; padding-left: 10px; margin: 24px 0 14px }
-    /* Tables */
     table { width: 100%; border-collapse: collapse; font-size: 13px }
     thead tr { background: #f1f5f9 }
     thead th { padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase;
       letter-spacing: .5px; color: #64748b; font-weight: 600 }
     tbody tr:nth-child(even) { background: #f8fafc }
-    /* Footer */
     .footer { margin-top: 36px; padding-top: 16px; border-top: 1px solid #e2e8f0;
       display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8 }
-    /* Print button */
     .print-btn { display: block; margin: 0 auto 28px; padding: 10px 28px; background: #0d9488;
       color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
-      cursor: pointer; letter-spacing: .3px }
+      cursor: pointer }
     .print-btn:hover { background: #0f766e }
   </style>
 </head>
 <body>
 <div class="page">
-
   <button class="print-btn no-print" onclick="window.print()">&#128438; Print / Save as PDF</button>
-
   <div class="header">
     <div class="header-left">
       <h1>Student Performance Report</h1>
@@ -282,7 +310,6 @@ function generateReportHTML(data: DashboardData): string {
     </div>
     <span class="header-badge">Academic Report</span>
   </div>
-
   <div class="profile-card">
     <div class="profile-field"><label>Student Name</label><p>${data.name}</p></div>
     <div class="profile-field"><label>Class / Standard</label><p>${data.class}</p></div>
@@ -290,7 +317,6 @@ function generateReportHTML(data: DashboardData): string {
     <div class="profile-field"><label>Location</label><p>${data.location}</p></div>
     <div class="profile-field"><label>Contact</label><p>${data.phone}</p></div>
   </div>
-
   <div class="section-title">Performance Overview</div>
   <div class="stats-grid">
     <div class="stat-box">
@@ -318,7 +344,6 @@ function generateReportHTML(data: DashboardData): string {
       </div>
     </div>
   </div>
-
   <div class="section-title">Subject-wise Performance</div>
   <table>
     <thead>
@@ -333,7 +358,6 @@ function generateReportHTML(data: DashboardData): string {
     </thead>
     <tbody>${subjectRows}</tbody>
   </table>
-
   ${compRows ? `
   <div class="section-title">Term-over-Term Comparison</div>
   <table>
@@ -347,7 +371,6 @@ function generateReportHTML(data: DashboardData): string {
     </thead>
     <tbody>${compRows}</tbody>
   </table>` : ""}
-
   <div class="footer">
     <span>Student Performance Analysis System</span>
     <span>Report for ${data.name} &nbsp;|&nbsp; ${generatedOn}</span>
@@ -361,14 +384,11 @@ async function downloadReport(data: DashboardData) {
   const html = generateReportHTML(data);
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
   const url = URL.createObjectURL(blob);
-
-  // Open in a new tab; user can Ctrl+P / Cmd+P to save as PDF
   const win = window.open(url, "_blank");
   if (win) {
     win.focus();
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
   } else {
-    // Popup blocked → fall back to direct download
     const a = document.createElement("a");
     a.href = url;
     a.download = `report-${data.name.replace(/\s+/g, "-").toLowerCase()}.html`;
@@ -390,6 +410,8 @@ export default function StudentPerformanceDashboard() {
   const [loading, setLoading] = useState(true);
   const [studentLoading, setStudentLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
+  const [whatsAppSuccess, setWhatsAppSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const selectedStudent = useMemo(
@@ -412,7 +434,6 @@ export default function StudentPerformanceDashboard() {
           board: s.board || "",
           location: s.location || "",
         }));
-
         setStudents(allStudents);
         if (allStudents.length > 0) {
           const queryMatch = allStudents.find((s) => s.id === preferredStudentId);
@@ -426,7 +447,6 @@ export default function StudentPerformanceDashboard() {
         setLoading(false);
       }
     };
-
     loadStudents();
   }, [preferredStudentId]);
 
@@ -441,6 +461,7 @@ export default function StudentPerformanceDashboard() {
 
   const handleStudentChange = (id: number) => {
     setSelectedStudentId(id);
+    setWhatsAppSuccess(false);
     router.replace(`/teacherdashboard/performanceanalysis?studentId=${id}`);
   };
 
@@ -453,16 +474,34 @@ export default function StudentPerformanceDashboard() {
     }
   };
 
+  const handleSendWhatsApp = () => {
+    const phone = dashboardData.phone;
+
+    if (!phone || phone.trim() === "") {
+      setError("No phone number found for this student.");
+      return;
+    }
+
+    setSendingWhatsApp(true);
+    try {
+      sendWhatsApp(phone, dashboardData);
+      setWhatsAppSuccess(true);
+      // Reset success message after 4 seconds
+      setTimeout(() => setWhatsAppSuccess(false), 4000);
+    } catch (e: any) {
+      setError("Failed to open WhatsApp. Please try again.");
+    } finally {
+      setSendingWhatsApp(false);
+    }
+  };
+
   useEffect(() => {
     if (!selectedStudent) return;
-
     const loadStudentPerformance = async () => {
       setStudentLoading(true);
       setError(null);
       try {
-        const assessmentRes: any = await teacherStudentAssessmentsApi.getByStudent(
-          selectedStudent.id
-        );
+        const assessmentRes: any = await teacherStudentAssessmentsApi.getByStudent(selectedStudent.id);
         const rows: AssessmentRow[] = assessmentRes?.data || [];
         setDashboardData(buildDashboardData(selectedStudent, rows, students.length));
       } catch (e: any) {
@@ -471,7 +510,6 @@ export default function StudentPerformanceDashboard() {
         setStudentLoading(false);
       }
     };
-
     loadStudentPerformance();
   }, [selectedStudent, students.length]);
 
@@ -493,7 +531,8 @@ export default function StudentPerformanceDashboard() {
               </h1>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+
+          <div className="flex items-center gap-2 flex-wrap justify-end">
             <select
               value={selectedStudentId ?? ""}
               onChange={(e) => handleStudentChange(Number(e.target.value))}
@@ -510,6 +549,25 @@ export default function StudentPerformanceDashboard() {
                 ))
               )}
             </select>
+
+            {/* WhatsApp Button */}
+            <Button
+              onClick={handleSendWhatsApp}
+              disabled={sendingWhatsApp || loading || studentLoading || !dashboardData.phone}
+              className="bg-green-500 hover:bg-green-600 text-white gap-2 shadow-md disabled:opacity-60"
+              title={!dashboardData.phone ? "No phone number for this student" : "Send report via WhatsApp"}
+            >
+              {sendingWhatsApp ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <MessageCircle className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline">
+                {sendingWhatsApp ? "Opening..." : "Send on WhatsApp"}
+              </span>
+            </Button>
+
+            {/* Download Button */}
             <Button
               onClick={handleDownloadReport}
               disabled={downloading || loading || studentLoading}
@@ -526,6 +584,13 @@ export default function StudentPerformanceDashboard() {
             </Button>
           </div>
         </div>
+
+        {/* WhatsApp success banner */}
+        {whatsAppSuccess && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+            ✅ WhatsApp opened! The report message is pre-filled and ready to send to <strong>{dashboardData.phone}</strong>.
+          </div>
+        )}
 
         <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-100">
           {(loading || studentLoading) && (
