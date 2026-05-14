@@ -157,43 +157,26 @@ async function sendWhatsAppViaAPI(
   performance: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    // Clean phone — add 91 if needed
-    let cleaned = phone.replace(/[\s\-().+]/g, "");
-    if (!cleaned.startsWith("91")) cleaned = "91" + cleaned;
-
-    const formData = new FormData();
-    formData.append("appkey", "f67908d5-5aa9-49d9-8c56-9572272ea6d0");
-    formData.append("authkey", "ppIYRYOlXVAd41QhiCDu6scku4jfJG0vTVBuLpsj395dXCT8wj");
-    formData.append("to", cleaned);
-    formData.append("template_id", "marks_update");
-    formData.append("language", "en");
-    // Template: 📈 {{1}} - Weekly Test Report
-    formData.append("variables[{1}]", studentName);
-    // Dear Parent, 👨‍🎓 Student Name: {{2}}
-    formData.append("variables[{2}]", studentName);
-    // 🏫 Class: {{3}}
-    formData.append("variables[{3}]", className);
-    // 📝 Test: {{4}}
-    formData.append("variables[{4}]", examination);
-    // 📅 Date: {{5}}
-    formData.append("variables[{5}]", examDate);
-    // 📊 Marks Obtained: {{6}} / {{7}}
-    formData.append("variables[{6}]", String(marks));
-    formData.append("variables[{7}]", String(totalMarks));
-    // ⭐ Performance: {{8}}
-    formData.append("variables[{8}]", performance);
-
-    const res = await fetch("https://api.rhaitech.online/api/create-message", {
-      method: "POST",
-      body: formData,
-    });
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/whatsapp/send-report`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone,
+          studentName,
+          className,
+          examination,
+          examDate,
+          marks,
+          totalMarks,
+          performance,
+        }),
+      }
+    );
 
     const json = await res.json();
-
-    if (res.ok && (json.status === "success" || json.success)) {
-      return { success: true, message: "Sent" };
-    }
-    return { success: false, message: json?.message || "API error" };
+    return { success: json.success, message: json.message };
   } catch (e: any) {
     return { success: false, message: e?.message || "Network error" };
   }
