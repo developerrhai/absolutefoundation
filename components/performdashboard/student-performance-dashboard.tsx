@@ -158,7 +158,7 @@ async function sendWhatsAppViaAPI(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/whatsapp/send-report`,
+      `${process.env.NEXT_PUBLIC_API_URL}/whatsapp/send-report`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
