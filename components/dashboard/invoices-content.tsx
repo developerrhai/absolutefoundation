@@ -522,14 +522,17 @@ const handleWhatsAppShare = async (inv: Invoice) => {
     phone = `91${phone}`
   }
 
-  if (!phone) {
-    alert("No phone number found for this student.")
-    return
-  }
+ if (!phone || phone.length < 10) {
+  alert("Invalid phone number")
+  return
+}
 
-  // Open WhatsApp chat directly
-  window.open(`https://wa.me/${phone}`, "_blank")
+// Ensure proper Indian format
+if (!phone.startsWith("91")) {
+  phone = `91${phone}`
+}
 
+console.log("Sending WhatsApp to:", phone)
   try {
     // Step 1 — Build invoice HTML
     const invoiceHTML = `
@@ -687,6 +690,9 @@ const handleWhatsAppShare = async (inv: Invoice) => {
     alert(`❌ Error: ${e.message}`)
   }
 }
+
+
+
   const f = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }))
   const filteredInvoices = invoices.filter(inv =>
     inv.student_name?.toLowerCase().includes(studentFilter.trim().toLowerCase())
