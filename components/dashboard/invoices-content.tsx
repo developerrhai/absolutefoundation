@@ -532,7 +532,7 @@ if (!phone.startsWith("91")) {
   phone = `91${phone}`
 }
 
-console.log("Sending WhatsApp to:", phone)
+// console.log("Sending WhatsApp to:", phone)
   try {
     // Step 1 — Build invoice HTML
     const invoiceHTML = `
