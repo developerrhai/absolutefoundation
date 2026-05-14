@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, GraduationCap, Download, Loader2, MessageCircle } from "lucide-react";
+import { ArrowLeft, GraduationCap, Download, Loader2, MessageCircle, Send } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "../ui/button";
 import { StudentProfile } from "../performdashboard/student-profile";
@@ -47,17 +47,16 @@ type DashboardData = {
     attendance: number;
     attendanceChange: number;
   };
-  subjects: Array<{
-    name: string;
-    marks: number;
-    total: number;
-    color: string;
-  }>;
-  performanceData: Array<{
-    subject: string;
-    thisTerm: number;
-    lastTerm: number;
-  }>;
+  subjects: Array<{ name: string; marks: number; total: number; color: string }>;
+  performanceData: Array<{ subject: string; thisTerm: number; lastTerm: number }>;
+};
+
+// ─── Bulk send result tracking ────────────────────────────────────────────────
+type BulkResult = {
+  studentName: string;
+  phone: string;
+  status: "success" | "failed" | "skipped";
+  reason?: string;
 };
 
 const SUBJECT_COLORS = [
@@ -68,6 +67,14 @@ const SUBJECT_COLORS = [
 function toNum(value: unknown) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
+}
+
+function getPerformanceLabel(pct: number): string {
+  if (pct >= 90) return "Excellent 🌟";
+  if (pct >= 75) return "Very Good 👍";
+  if (pct >= 60) return "Good ✅";
+  if (pct >= 50) return "Average 📘";
+  return "Needs Improvement 📚";
 }
 
 function buildDashboardData(
@@ -103,8 +110,7 @@ function buildDashboardData(
   const previousTermMarks = Array.from(subjectMap.values()).map((v) => toNum(v.previous?.marks));
   const prevCount = previousTermMarks.filter((m) => m > 0).length;
   const prevAverage = prevCount > 0
-    ? previousTermMarks.reduce((sum, mark) => sum + mark, 0) / prevCount
-    : 0;
+    ? previousTermMarks.reduce((sum, mark) => sum + mark, 0) / prevCount : 0;
 
   const overallPercentage = Number(averageMarks.toFixed(1));
   const averageChange = Number((averageMarks - prevAverage).toFixed(1));
@@ -138,72 +144,62 @@ function buildDashboardData(
   };
 }
 
-// ─── WhatsApp Message Builder ─────────────────────────────────────────────────
+// ─── RhaiTech WhatsApp API call ───────────────────────────────────────────────
 
-function buildWhatsAppMessage(data: DashboardData): string {
-  const generatedOn = new Date().toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+async function sendWhatsAppViaAPI(
+  phone: string,
+  studentName: string,
+  className: string,
+  examination: string,
+  examDate: string,
+  marks: number,
+  totalMarks: number,
+  performance: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    // Clean phone — add 91 if needed
+    let cleaned = phone.replace(/[\s\-().+]/g, "");
+    if (!cleaned.startsWith("91")) cleaned = "91" + cleaned;
 
-  const grade = (pct: number) =>
-    pct >= 90 ? "A+" : pct >= 80 ? "A" : pct >= 70 ? "B+" : pct >= 60 ? "B" : pct >= 50 ? "C" : "D";
+    const formData = new FormData();
+    formData.append("appkey", "f67908d5-5aa9-49d9-8c56-9572272ea6d0");
+    formData.append("authkey", "ppIYRYOlXVAd41QhiCDu6scku4jfJG0vTVBuLpsj395dXCT8wj");
+    formData.append("to", cleaned);
+    formData.append("template_id", "marks_update");
+    formData.append("language", "en");
+    // Template: 📈 {{1}} - Weekly Test Report
+    formData.append("variables[{1}]", studentName);
+    // Dear Parent, 👨‍🎓 Student Name: {{2}}
+    formData.append("variables[{2}]", studentName);
+    // 🏫 Class: {{3}}
+    formData.append("variables[{3}]", className);
+    // 📝 Test: {{4}}
+    formData.append("variables[{4}]", examination);
+    // 📅 Date: {{5}}
+    formData.append("variables[{5}]", examDate);
+    // 📊 Marks Obtained: {{6}} / {{7}}
+    formData.append("variables[{6}]", String(marks));
+    formData.append("variables[{7}]", String(totalMarks));
+    // ⭐ Performance: {{8}}
+    formData.append("variables[{8}]", performance);
 
-  const subjectLines = data.subjects
-    .map((s) => {
-      const pct = ((s.marks / s.total) * 100).toFixed(1);
-      return `  • ${s.name}: ${s.marks}/${s.total} (${pct}%) — ${grade(Number(pct))}`;
-    })
-    .join("\n");
+    const res = await fetch("https://api.rhaitech.online/api/create-message", {
+      method: "POST",
+      body: formData,
+    });
 
-  const changeArrow = (v: number) => (v > 0 ? "📈" : v < 0 ? "📉" : "➡️");
+    const json = await res.json();
 
-  const message = `
-🎓 *Student Performance Report*
-📅 ${generatedOn}
-━━━━━━━━━━━━━━━━━━━━
-👤 *Student:* ${data.name}
-🏫 *Class:* ${data.class} | *Board:* ${data.board}
-📍 *Location:* ${data.location}
-📞 *Contact:* ${data.phone}
-
-━━━━━━━━━━━━━━━━━━━━
-📊 *Performance Summary*
-━━━━━━━━━━━━━━━━━━━━
-Overall %: *${data.stats.overallPercentage}%* ${changeArrow(data.stats.percentageChange)} (${data.stats.percentageChange > 0 ? "+" : ""}${data.stats.percentageChange}% vs Last Term)
-Avg Marks: *${data.stats.averageMarks} / ${data.stats.totalMarks}*
-Class Rank: *${data.stats.classRank} of ${data.stats.totalStudents}*
-Attendance: *${data.stats.attendance}%*
-
-━━━━━━━━━━━━━━━━━━━━
-📚 *Subject-wise Marks*
-━━━━━━━━━━━━━━━━━━━━
-${subjectLines}
-
-━━━━━━━━━━━━━━━━━━━━
-_Vidyaaniketan Professional Academy_
-`.trim();
-
-  return message;
-}
-
-function sendWhatsApp(phone: string, data: DashboardData) {
-  // Clean phone number — remove spaces, dashes, brackets
-  // Add India country code (+91) if not already present
-  let cleaned = phone.replace(/[\s\-().]/g, "");
-  if (!cleaned.startsWith("+") && !cleaned.startsWith("91")) {
-    cleaned = "91" + cleaned;
+    if (res.ok && (json.status === "success" || json.success)) {
+      return { success: true, message: "Sent" };
+    }
+    return { success: false, message: json?.message || "API error" };
+  } catch (e: any) {
+    return { success: false, message: e?.message || "Network error" };
   }
-  cleaned = cleaned.replace(/^\+/, "");
-
-  const message = buildWhatsAppMessage(data);
-  const encoded = encodeURIComponent(message);
-  const url = `https://wa.me/${cleaned}?text=${encoded}`;
-  window.open(url, "_blank");
 }
 
-// ─── Report HTML builder ─────────────────────────────────────────────────────
+// ─── Report HTML builder ──────────────────────────────────────────────────────
 
 function generateReportHTML(data: DashboardData): string {
   const generatedOn = new Date().toLocaleDateString("en-IN", {
@@ -253,7 +249,7 @@ function generateReportHTML(data: DashboardData): string {
   }).join("");
 
   const changeClass = (v: number) => (v >= 0 ? "change-pos" : "change-neg");
-  const arrow = (v: number) => (v >= 0 ? "&#9650;" : "&#9660;");
+  const arrowHTML = (v: number) => (v >= 0 ? "&#9650;" : "&#9660;");
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -263,19 +259,13 @@ function generateReportHTML(data: DashboardData): string {
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0 }
     body { font-family: 'Segoe UI', Arial, sans-serif; background: #fff; color: #1e293b; font-size: 14px }
-    @media print {
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact }
-      .no-print { display: none }
-    }
+    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact } .no-print { display: none } }
     .page { max-width: 900px; margin: 0 auto; padding: 40px 36px }
-    .header { display: flex; align-items: center; justify-content: space-between;
-      padding-bottom: 20px; border-bottom: 3px solid #0d9488; margin-bottom: 28px }
-    .header-left h1 { font-size: 22px; font-weight: 700; color: #0d9488; letter-spacing: -0.5px }
+    .header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 20px; border-bottom: 3px solid #0d9488; margin-bottom: 28px }
+    .header-left h1 { font-size: 22px; font-weight: 700; color: #0d9488 }
     .header-left p { font-size: 12px; color: #94a3b8; margin-top: 2px }
-    .header-badge { background: #0d9488; color: #fff; padding: 6px 16px; border-radius: 20px;
-      font-size: 12px; font-weight: 600 }
-    .profile-card { background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 12px;
-      padding: 20px 24px; display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 24px }
+    .header-badge { background: #0d9488; color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 600 }
+    .profile-card { background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 12px; padding: 20px 24px; display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 24px }
     .profile-field label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .5px }
     .profile-field p { font-size: 15px; font-weight: 600; color: #0f172a; margin-top: 2px }
     .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px }
@@ -285,29 +275,20 @@ function generateReportHTML(data: DashboardData): string {
     .stat-box .sub { font-size: 12px; color: #94a3b8 }
     .change-pos { font-size: 12px; color: #16a34a; font-weight: 600 }
     .change-neg { font-size: 12px; color: #dc2626; font-weight: 600 }
-    .section-title { font-size: 14px; font-weight: 700; color: #0f172a;
-      border-left: 4px solid #0d9488; padding-left: 10px; margin: 24px 0 14px }
+    .section-title { font-size: 14px; font-weight: 700; color: #0f172a; border-left: 4px solid #0d9488; padding-left: 10px; margin: 24px 0 14px }
     table { width: 100%; border-collapse: collapse; font-size: 13px }
     thead tr { background: #f1f5f9 }
-    thead th { padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase;
-      letter-spacing: .5px; color: #64748b; font-weight: 600 }
+    thead th { padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: #64748b; font-weight: 600 }
     tbody tr:nth-child(even) { background: #f8fafc }
-    .footer { margin-top: 36px; padding-top: 16px; border-top: 1px solid #e2e8f0;
-      display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8 }
-    .print-btn { display: block; margin: 0 auto 28px; padding: 10px 28px; background: #0d9488;
-      color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
-      cursor: pointer }
-    .print-btn:hover { background: #0f766e }
+    .footer { margin-top: 36px; padding-top: 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8 }
+    .print-btn { display: block; margin: 0 auto 28px; padding: 10px 28px; background: #0d9488; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer }
   </style>
 </head>
 <body>
 <div class="page">
   <button class="print-btn no-print" onclick="window.print()">&#128438; Print / Save as PDF</button>
   <div class="header">
-    <div class="header-left">
-      <h1>Student Performance Report</h1>
-      <p>Generated on ${generatedOn}</p>
-    </div>
+    <div class="header-left"><h1>Student Performance Report</h1><p>Generated on ${generatedOn}</p></div>
     <span class="header-badge">Academic Report</span>
   </div>
   <div class="profile-card">
@@ -319,65 +300,23 @@ function generateReportHTML(data: DashboardData): string {
   </div>
   <div class="section-title">Performance Overview</div>
   <div class="stats-grid">
-    <div class="stat-box">
-      <div class="label">Overall %</div>
-      <div class="value">${data.stats.overallPercentage}%</div>
-      <div class="${changeClass(data.stats.percentageChange)}">
-        ${arrow(data.stats.percentageChange)} ${Math.abs(data.stats.percentageChange)}% vs Last Term
-      </div>
-    </div>
-    <div class="stat-box">
-      <div class="label">Avg Marks</div>
-      <div class="value">${data.stats.averageMarks}</div>
-      <div class="sub">out of ${data.stats.totalMarks}</div>
-    </div>
-    <div class="stat-box">
-      <div class="label">Class Rank</div>
-      <div class="value">${data.stats.classRank}</div>
-      <div class="sub">of ${data.stats.totalStudents} students</div>
-    </div>
-    <div class="stat-box">
-      <div class="label">Attendance</div>
-      <div class="value">${data.stats.attendance}%</div>
-      <div class="${changeClass(data.stats.attendanceChange)}">
-        ${arrow(data.stats.attendanceChange)} ${Math.abs(data.stats.attendanceChange)}% vs Last Term
-      </div>
-    </div>
+    <div class="stat-box"><div class="label">Overall %</div><div class="value">${data.stats.overallPercentage}%</div>
+      <div class="${changeClass(data.stats.percentageChange)}">${arrowHTML(data.stats.percentageChange)} ${Math.abs(data.stats.percentageChange)}% vs Last Term</div></div>
+    <div class="stat-box"><div class="label">Avg Marks</div><div class="value">${data.stats.averageMarks}</div><div class="sub">out of ${data.stats.totalMarks}</div></div>
+    <div class="stat-box"><div class="label">Class Rank</div><div class="value">${data.stats.classRank}</div><div class="sub">of ${data.stats.totalStudents} students</div></div>
+    <div class="stat-box"><div class="label">Attendance</div><div class="value">${data.stats.attendance}%</div>
+      <div class="${changeClass(data.stats.attendanceChange)}">${arrowHTML(data.stats.attendanceChange)} ${Math.abs(data.stats.attendanceChange)}% vs Last Term</div></div>
   </div>
   <div class="section-title">Subject-wise Performance</div>
   <table>
-    <thead>
-      <tr>
-        <th>Subject</th>
-        <th style="text-align:center">Marks Obtained</th>
-        <th style="text-align:center">Total Marks</th>
-        <th style="text-align:center">Percentage</th>
-        <th style="text-align:center">Grade</th>
-        <th>Progress</th>
-      </tr>
-    </thead>
+    <thead><tr><th>Subject</th><th style="text-align:center">Marks</th><th style="text-align:center">Total</th><th style="text-align:center">Percentage</th><th style="text-align:center">Grade</th><th>Progress</th></tr></thead>
     <tbody>${subjectRows}</tbody>
   </table>
-  ${compRows ? `
-  <div class="section-title">Term-over-Term Comparison</div>
-  <table>
-    <thead>
-      <tr>
-        <th>Subject</th>
-        <th style="text-align:center">Last Term</th>
-        <th style="text-align:center">This Term</th>
-        <th style="text-align:center">Change</th>
-      </tr>
-    </thead>
-    <tbody>${compRows}</tbody>
-  </table>` : ""}
-  <div class="footer">
-    <span>Student Performance Analysis System</span>
-    <span>Report for ${data.name} &nbsp;|&nbsp; ${generatedOn}</span>
-  </div>
-</div>
-</body>
-</html>`;
+  ${compRows ? `<div class="section-title">Term-over-Term Comparison</div>
+  <table><thead><tr><th>Subject</th><th style="text-align:center">Last Term</th><th style="text-align:center">This Term</th><th style="text-align:center">Change</th></tr></thead>
+  <tbody>${compRows}</tbody></table>` : ""}
+  <div class="footer"><span>Student Performance Analysis System</span><span>Report for ${data.name} &nbsp;|&nbsp; ${generatedOn}</span></div>
+</div></body></html>`;
 }
 
 async function downloadReport(data: DashboardData) {
@@ -385,16 +324,12 @@ async function downloadReport(data: DashboardData) {
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const win = window.open(url, "_blank");
-  if (win) {
-    win.focus();
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
-  } else {
+  if (win) { win.focus(); setTimeout(() => URL.revokeObjectURL(url), 10_000); }
+  else {
     const a = document.createElement("a");
     a.href = url;
     a.download = `report-${data.name.replace(/\s+/g, "-").toLowerCase()}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 5_000);
   }
 }
@@ -410,9 +345,16 @@ export default function StudentPerformanceDashboard() {
   const [loading, setLoading] = useState(true);
   const [studentLoading, setStudentLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
-  const [whatsAppSuccess, setWhatsAppSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ── Bulk send state ────────────────────────────────────────────────────────
+  const [bulkSending, setBulkSending] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(0);
+  const [bulkTotal, setBulkTotal] = useState(0);
+  const [bulkResults, setBulkResults] = useState<BulkResult[]>([]);
+  const [showBulkResults, setShowBulkResults] = useState(false);
+  // Raw assessments cache per student: studentId → rows
+  const [assessmentCache, setAssessmentCache] = useState<Map<number, AssessmentRow[]>>(new Map());
 
   const selectedStudent = useMemo(
     () => students.find((s) => s.id === selectedStudentId) ?? null,
@@ -422,113 +364,154 @@ export default function StudentPerformanceDashboard() {
 
   useEffect(() => {
     const loadStudents = async () => {
-      setLoading(true);
-      setError(null);
+      setLoading(true); setError(null);
       try {
         const studentsRes: any = await studentsUniversalApi.getAll();
         const allStudents: Student[] = (studentsRes?.data || []).map((s: any) => ({
-          id: Number(s.id),
-          name: s.name || "",
-          phone: s.phone || "",
-          standard: s.standard || "",
-          board: s.board || "",
-          location: s.location || "",
+          id: Number(s.id), name: s.name || "", phone: s.phone || "",
+          standard: s.standard || "", board: s.board || "", location: s.location || "",
         }));
         setStudents(allStudents);
         if (allStudents.length > 0) {
           const queryMatch = allStudents.find((s) => s.id === preferredStudentId);
           setSelectedStudentId(queryMatch ? queryMatch.id : allStudents[0].id);
-        } else {
-          setDashboardData(studentData);
-        }
-      } catch (e: any) {
-        setError(e?.message || "Failed to load students");
-      } finally {
-        setLoading(false);
-      }
+        } else { setDashboardData(studentData); }
+      } catch (e: any) { setError(e?.message || "Failed to load students"); }
+      finally { setLoading(false); }
     };
     loadStudents();
   }, [preferredStudentId]);
 
   useEffect(() => {
-    if (!students.length) return;
-    if (!Number.isFinite(preferredStudentId)) return;
+    if (!students.length || !Number.isFinite(preferredStudentId)) return;
     const queryMatch = students.find((s) => s.id === preferredStudentId);
-    if (queryMatch && queryMatch.id !== selectedStudentId) {
-      setSelectedStudentId(queryMatch.id);
-    }
+    if (queryMatch && queryMatch.id !== selectedStudentId) setSelectedStudentId(queryMatch.id);
   }, [preferredStudentId, students, selectedStudentId]);
 
   const handleStudentChange = (id: number) => {
     setSelectedStudentId(id);
-    setWhatsAppSuccess(false);
     router.replace(`/teacherdashboard/performanceanalysis?studentId=${id}`);
   };
 
   const handleDownloadReport = async () => {
     setDownloading(true);
-    try {
-      await downloadReport(dashboardData);
-    } finally {
-      setDownloading(false);
-    }
-  };
-
-  const handleSendWhatsApp = () => {
-    const phone = dashboardData.phone;
-
-    if (!phone || phone.trim() === "") {
-      setError("No phone number found for this student.");
-      return;
-    }
-
-    setSendingWhatsApp(true);
-    try {
-      sendWhatsApp(phone, dashboardData);
-      setWhatsAppSuccess(true);
-      // Reset success message after 4 seconds
-      setTimeout(() => setWhatsAppSuccess(false), 4000);
-    } catch (e: any) {
-      setError("Failed to open WhatsApp. Please try again.");
-    } finally {
-      setSendingWhatsApp(false);
-    }
+    try { await downloadReport(dashboardData); }
+    finally { setDownloading(false); }
   };
 
   useEffect(() => {
     if (!selectedStudent) return;
     const loadStudentPerformance = async () => {
-      setStudentLoading(true);
-      setError(null);
+      setStudentLoading(true); setError(null);
       try {
         const assessmentRes: any = await teacherStudentAssessmentsApi.getByStudent(selectedStudent.id);
         const rows: AssessmentRow[] = assessmentRes?.data || [];
+        // Cache raw rows for bulk send
+        setAssessmentCache((prev) => new Map(prev).set(selectedStudent.id, rows));
         setDashboardData(buildDashboardData(selectedStudent, rows, students.length));
-      } catch (e: any) {
-        setError(e?.message || "Failed to load performance data");
-      } finally {
-        setStudentLoading(false);
-      }
+      } catch (e: any) { setError(e?.message || "Failed to load performance data"); }
+      finally { setStudentLoading(false); }
     };
     loadStudentPerformance();
   }, [selectedStudent, students.length]);
 
+  // ── Bulk Send Handler ──────────────────────────────────────────────────────
+  const handleBulkSend = async () => {
+    if (bulkSending) return;
+    const confirm = window.confirm(
+      `Send WhatsApp report to all ${students.length} students?\n\nThis will send the latest test result for each student via the marks_update template.`
+    );
+    if (!confirm) return;
+
+    setBulkSending(true);
+    setBulkProgress(0);
+    setBulkTotal(students.length);
+    setBulkResults([]);
+    setShowBulkResults(false);
+    setError(null);
+
+    const results: BulkResult[] = [];
+
+    for (let i = 0; i < students.length; i++) {
+      const student = students[i];
+      setBulkProgress(i + 1);
+
+      // Skip if no phone
+      if (!student.phone?.trim()) {
+        results.push({ studentName: student.name, phone: "—", status: "skipped", reason: "No phone number" });
+        continue;
+      }
+
+      try {
+        // Fetch assessments (use cache if already loaded)
+        let rows: AssessmentRow[] = assessmentCache.get(student.id) || [];
+        if (!rows.length) {
+          const res: any = await teacherStudentAssessmentsApi.getByStudent(student.id);
+          rows = res?.data || [];
+          setAssessmentCache((prev) => new Map(prev).set(student.id, rows));
+        }
+
+        if (!rows.length) {
+          results.push({ studentName: student.name, phone: student.phone, status: "skipped", reason: "No assessment data" });
+          continue;
+        }
+
+        // Get latest assessment row
+        const latest = rows[0];
+        const pct = toNum(latest.marks);
+        const performance = getPerformanceLabel(pct);
+        const examDate = latest.exam_date
+          ? new Date(latest.exam_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+          : new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
+        const result = await sendWhatsAppViaAPI(
+          student.phone,
+          student.name,
+          student.standard,
+          latest.examination || "Weekly Test",
+          examDate,
+          toNum(latest.marks),
+          100,
+          performance
+        );
+
+        results.push({
+          studentName: student.name,
+          phone: student.phone,
+          status: result.success ? "success" : "failed",
+          reason: result.success ? undefined : result.message,
+        });
+
+        // Small delay between API calls to avoid rate limiting
+        await new Promise((r) => setTimeout(r, 300));
+
+      } catch (e: any) {
+        results.push({ studentName: student.name, phone: student.phone, status: "failed", reason: e?.message || "Unknown error" });
+      }
+    }
+
+    setBulkResults(results);
+    setBulkSending(false);
+    setShowBulkResults(true);
+  };
+
+  const successCount = bulkResults.filter((r) => r.status === "success").length;
+  const failedCount  = bulkResults.filter((r) => r.status === "failed").length;
+  const skippedCount = bulkResults.filter((r) => r.status === "skipped").length;
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-6 flex items-center justify-between">
+
+        {/* ── Header ── */}
+        <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.back()}
-              className="rounded-lg p-2 hover:bg-slate-200 transition-colors"
-            >
+            <button onClick={() => router.back()} className="rounded-lg p-2 hover:bg-slate-200 transition-colors">
               <ArrowLeft className="h-5 w-5 text-slate-600" />
             </button>
             <div className="flex items-center gap-2">
               <GraduationCap className="h-6 w-6 text-teal-600" />
-              <h1 className="text-xl font-bold text-slate-800 sm:text-2xl">
-                Student Performance Analysis
-              </h1>
+              <h1 className="text-xl font-bold text-slate-800 sm:text-2xl">Student Performance Analysis</h1>
             </div>
           </div>
 
@@ -543,66 +526,128 @@ export default function StudentPerformanceDashboard() {
                 <option value="">No students</option>
               ) : (
                 students.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name || `Student ${s.id}`}
-                  </option>
+                  <option key={s.id} value={s.id}>{s.name || `Student ${s.id}`}</option>
                 ))
               )}
             </select>
 
-            {/* WhatsApp Button */}
+            {/* 📤 Bulk Send Button */}
             <Button
-              onClick={handleSendWhatsApp}
-              disabled={sendingWhatsApp || loading || studentLoading || !dashboardData.phone}
-              className="bg-green-500 hover:bg-green-600 text-white gap-2 shadow-md disabled:opacity-60"
-              title={!dashboardData.phone ? "No phone number for this student" : "Send report via WhatsApp"}
+              onClick={handleBulkSend}
+              disabled={bulkSending || loading || students.length === 0}
+              className="bg-green-600 hover:bg-green-700 text-white gap-2 shadow-md disabled:opacity-60"
+              title="Send latest test report to all students via WhatsApp"
             >
-              {sendingWhatsApp ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+              {bulkSending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="hidden sm:inline">{bulkProgress}/{bulkTotal} Sending...</span>
+                </>
               ) : (
-                <MessageCircle className="h-4 w-4" />
+                <>
+                  <MessageCircle className="h-4 w-4" />
+                  <span className="hidden sm:inline">Bulk WhatsApp</span>
+                </>
               )}
-              <span className="hidden sm:inline">
-                {sendingWhatsApp ? "Opening..." : "Send on WhatsApp"}
-              </span>
             </Button>
 
-            {/* Download Button */}
+            {/* 📥 Download Button */}
             <Button
               onClick={handleDownloadReport}
               disabled={downloading || loading || studentLoading}
               className="bg-teal-500 hover:bg-teal-600 text-white gap-2 shadow-md disabled:opacity-60"
             >
-              {downloading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-              <span className="hidden sm:inline">
-                {downloading ? "Preparing..." : "Download Report"}
-              </span>
+              {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              <span className="hidden sm:inline">{downloading ? "Preparing..." : "Download Report"}</span>
             </Button>
           </div>
         </div>
 
-        {/* WhatsApp success banner */}
-        {whatsAppSuccess && (
-          <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
-            ✅ WhatsApp opened! The report message is pre-filled and ready to send to <strong>{dashboardData.phone}</strong>.
+        {/* ── Bulk Progress Bar ── */}
+        {bulkSending && (
+          <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-green-800 flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Sending reports... {bulkProgress} of {bulkTotal}
+              </span>
+              <span className="text-sm text-green-600">{Math.round((bulkProgress / bulkTotal) * 100)}%</span>
+            </div>
+            <div className="w-full bg-green-200 rounded-full h-2">
+              <div
+                className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${(bulkProgress / bulkTotal) * 100}%` }}
+              />
+            </div>
           </div>
         )}
 
+        {/* ── Bulk Results Summary ── */}
+        {showBulkResults && !bulkSending && (
+          <div className="mb-4 rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+            {/* Summary bar */}
+            <div className="flex items-center gap-4 p-4 border-b border-slate-100 flex-wrap">
+              <span className="font-semibold text-slate-700">Bulk Send Complete</span>
+              <span className="flex items-center gap-1 text-sm text-green-700 bg-green-50 px-3 py-1 rounded-full">
+                ✅ {successCount} Sent
+              </span>
+              <span className="flex items-center gap-1 text-sm text-red-700 bg-red-50 px-3 py-1 rounded-full">
+                ❌ {failedCount} Failed
+              </span>
+              <span className="flex items-center gap-1 text-sm text-yellow-700 bg-yellow-50 px-3 py-1 rounded-full">
+                ⚠️ {skippedCount} Skipped
+              </span>
+              <button
+                onClick={() => setShowBulkResults(false)}
+                className="ml-auto text-xs text-slate-400 hover:text-slate-600 underline"
+              >
+                Dismiss
+              </button>
+            </div>
+
+            {/* Detailed result table */}
+            <div className="max-h-56 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 sticky top-0">
+                  <tr>
+                    <th className="text-left px-4 py-2 text-xs text-slate-500 font-medium">Student</th>
+                    <th className="text-left px-4 py-2 text-xs text-slate-500 font-medium">Phone</th>
+                    <th className="text-left px-4 py-2 text-xs text-slate-500 font-medium">Status</th>
+                    <th className="text-left px-4 py-2 text-xs text-slate-500 font-medium">Reason</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bulkResults.map((r, i) => (
+                    <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
+                      <td className="px-4 py-2 font-medium text-slate-700">{r.studentName}</td>
+                      <td className="px-4 py-2 text-slate-500">{r.phone}</td>
+                      <td className="px-4 py-2">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold
+                          ${r.status === "success" ? "bg-green-100 text-green-700" :
+                            r.status === "failed"  ? "bg-red-100 text-red-700" :
+                                                     "bg-yellow-100 text-yellow-700"}`}>
+                          {r.status === "success" ? "✅ Sent" : r.status === "failed" ? "❌ Failed" : "⚠️ Skipped"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-slate-400 text-xs">{r.reason || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── Error ── */}
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+        )}
+
+        {/* ── Dashboard Card ── */}
         <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-100">
           {(loading || studentLoading) && (
             <div className="mb-4 flex items-center gap-2 rounded-lg border border-sky-100 bg-sky-50 p-3 text-sm text-sky-700">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading dashboard data...
-            </div>
-          )}
-
-          {error && (
-            <div className="mb-4 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-700">
-              {error}
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading dashboard data...
             </div>
           )}
 
@@ -615,52 +660,25 @@ export default function StudentPerformanceDashboard() {
               location={dashboardData.location}
             />
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <StatsCard
-                title="Overall Percentage"
-                value={`${dashboardData.stats.overallPercentage}%`}
-                change={dashboardData.stats.percentageChange}
-                changeLabel="vs Last Term"
-                icon="percentage"
-              />
-              <StatsCard
-                title="Average Marks"
-                value={dashboardData.stats.averageMarks}
-                subValue={`/ ${dashboardData.stats.totalMarks}`}
-                change={dashboardData.stats.averageChange}
-                changeLabel="vs Last Term"
-                icon="star"
-              />
-              <StatsCard
-                title="Class Rank"
-                value={dashboardData.stats.classRank}
-                subValue={`/ ${dashboardData.stats.totalStudents}`}
-                change={dashboardData.stats.rankChange}
-                changeLabel="vs Last Term"
-                icon="rank"
-              />
-              <StatsCard
-                title="Attendance"
-                value={`${dashboardData.stats.attendance}%`}
-                change={dashboardData.stats.attendanceChange}
-                changeLabel="vs Last Term"
-                icon="attendance"
-              />
+              <StatsCard title="Overall Percentage" value={`${dashboardData.stats.overallPercentage}%`}
+                change={dashboardData.stats.percentageChange} changeLabel="vs Last Term" icon="percentage" />
+              <StatsCard title="Average Marks" value={dashboardData.stats.averageMarks}
+                subValue={`/ ${dashboardData.stats.totalMarks}`} change={dashboardData.stats.averageChange}
+                changeLabel="vs Last Term" icon="star" />
+              <StatsCard title="Class Rank" value={dashboardData.stats.classRank}
+                subValue={`/ ${dashboardData.stats.totalStudents}`} change={dashboardData.stats.rankChange}
+                changeLabel="vs Last Term" icon="rank" />
+              <StatsCard title="Attendance" value={`${dashboardData.stats.attendance}%`}
+                change={dashboardData.stats.attendanceChange} changeLabel="vs Last Term" icon="attendance" />
             </div>
           </div>
 
           <div className="mb-6 grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-1"><PerformanceChart data={dashboardData.performanceData} /></div>
             <div className="lg:col-span-1">
-              <PerformanceChart data={dashboardData.performanceData} />
+              <SubjectMarksChart subjects={dashboardData.subjects} average={dashboardData.stats.overallPercentage} />
             </div>
-            <div className="lg:col-span-1">
-              <SubjectMarksChart
-                subjects={dashboardData.subjects}
-                average={dashboardData.stats.overallPercentage}
-              />
-            </div>
-            <div className="lg:col-span-1">
-              <PerformanceInsights />
-            </div>
+            <div className="lg:col-span-1"><PerformanceInsights /></div>
           </div>
 
           <DetailedAnalysis subjects={dashboardData.subjects} />
