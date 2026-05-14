@@ -509,32 +509,222 @@ Account Name : Vidyaaniketan Professional Academy
   }
 
   // ── WhatsApp Share ─────────────────────────────────────────
+// const handleWhatsAppShare = async (inv: Invoice) => {
+//   const amount  = Number(inv.amount || 0)
+//   const paid    = Number(inv.paid_amount || 0)
+//   const balance = amount - paid
+
+//   // Clean number
+//   let phone = (inv.student_phone || "").replace(/\D/g, "")
+
+//   // Add India country code if missing
+//   if (phone.length === 10) {
+//     phone = `91${phone}`
+//   }
+
+//  if (!phone || phone.length < 10) {
+//   alert("Invalid phone number")
+//   return
+// }
+
+// // Ensure proper Indian format
+// if (!phone.startsWith("91")) {
+//   phone = `91${phone}`
+// }
+
+// // console.log("Sending WhatsApp to:", phone)
+//   try {
+//     // Step 1 — Build invoice HTML
+//     const invoiceHTML = `
+//       <div id="invoice-capture" style="
+//         width:794px;
+//         padding:40px 36px;
+//         font-family:Arial,Helvetica,sans-serif;
+//         color:#333;
+//         background:#fff;
+//       ">
+//         <div style="display:flex;justify-content:space-between;border-bottom:2px solid #1f7fa6;padding-bottom:10px">
+//           <div>
+//             <h2 style="margin:0;font-size:20px">DNYANSAGAR CLASSES</h2>
+//             <p style="margin:2px 0;font-size:13px">
+//               201/A, New Excelsior Building Opp. Crown Hotel, KHADKI Pune - 411003
+//             </p>
+//             <p style="margin:2px 0;font-size:13px">
+//               Phone: 8862010906 | State: Maharashtra
+//             </p>
+//           </div>
+//         </div>
+
+//         <div style="text-align:center;color:#1f7fa6;font-size:22px;font-weight:bold;margin:15px 0">
+//           Payment Receipt
+//         </div>
+
+//         <div style="display:flex;justify-content:space-between;margin-top:10px">
+//           <div>
+//             <p><b>Received From:</b> ${inv.student_name}</p>
+//             <p><b>Contact:</b> ${inv.student_phone || "-"}</p>
+//             <p><b>Amount in words:</b> ${paid.toLocaleString()} Rupees only</p>
+//           </div>
+
+//           <div style="text-align:right">
+//             <p><b>Receipt No:</b> ${inv.id}</p>
+//             <p><b>Date:</b> ${fmtDate(inv.install_date)}</p>
+//           </div>
+//         </div>
+
+//         <table style="width:100%;border-collapse:collapse;margin-top:20px;font-size:14px">
+//           <tr>
+//             <td style="padding:6px 0">Received</td>
+//             <td style="text-align:right;font-weight:bold">
+//               ₹ ${paid.toLocaleString()}
+//             </td>
+//           </tr>
+
+//           <tr>
+//             <td style="padding:6px 0">Payment Mode</td>
+//             <td style="text-align:right;font-weight:bold">
+//               ${inv.transaction_type || "Cash"}
+//             </td>
+//           </tr>
+
+//           <tr>
+//             <td style="padding:6px 0">Previous Balance</td>
+//             <td style="text-align:right;font-weight:bold">
+//               ₹ ${amount.toLocaleString()}
+//             </td>
+//           </tr>
+
+//           <tr style="border-top:1px solid #999">
+//             <td style="padding:6px 0"><b>Current Balance</b></td>
+//             <td style="text-align:right;font-weight:bold">
+//               ₹ ${balance.toLocaleString()}
+//             </td>
+//           </tr>
+//         </table>
+
+//         <div style="margin-top:50px;text-align:right">
+//           <div>For: DNYANSAGAR CLASSES</div>
+//           <div style="font-weight:bold;margin-top:30px">
+//             Authorized Signatory
+//           </div>
+//         </div>
+//       </div>
+//     `
+
+//     // Step 2 — Convert HTML to image
+//     const { default: html2canvas } = await import("html2canvas")
+
+//     const container = document.createElement("div")
+//     container.style.position = "fixed"
+//     container.style.top = "-9999px"
+//     container.style.left = "-9999px"
+//     container.innerHTML = invoiceHTML
+
+//     document.body.appendChild(container)
+
+//     const canvas = await html2canvas(
+//       container.querySelector("#invoice-capture") as HTMLElement,
+//       {
+//         scale: 2,
+//         useCORS: true,
+//         backgroundColor: "#ffffff",
+//       }
+//     )
+
+//     document.body.removeChild(container)
+
+//     // Step 3 — Convert canvas to blob
+//     const blob: Blob = await new Promise((resolve) =>
+//       canvas.toBlob((b) => resolve(b!), "image/png", 1.0)
+//     )
+
+//     // Step 4 — Upload image
+//     const uploadForm = new FormData()
+//     uploadForm.append("image", blob, `invoice-${inv.id}.png`)
+
+//     const uploadRes = await fetch(
+//       `${process.env.NEXT_PUBLIC_API_URL}/api/whatsapp/upload-invoice`,
+//       {
+//         method: "POST",
+//         body: uploadForm,
+//       }
+//     )
+
+//     const uploadJson = await uploadRes.json()
+
+//     if (!uploadJson.success) {
+//       alert(`❌ Image upload failed: ${uploadJson.message}`)
+//       return
+//     }
+
+//     const imageUrl = uploadJson.url
+
+//     // Step 5 — Send invoice on WhatsApp
+//     const sendRes = await fetch(
+//       `${process.env.NEXT_PUBLIC_API_URL}/api/whatsapp/send-invoice`,
+//       {
+//         method: "POST",
+//         headers: {
+//           "Content-Type": "application/json",
+//         },
+//         body: JSON.stringify({
+//           phone,
+//           studentName: inv.student_name,
+//           amountPaid: paid,
+//           balance,
+//           imageUrl,
+//         }),
+//       }
+//     )
+
+//     const sendJson = await sendRes.json()
+
+//     if (sendJson.success) {
+//       alert(`✅ Invoice sent to ${phone}`)
+//     } else {
+//       alert(`❌ Failed to send: ${sendJson.message}`)
+//     }
+
+//   } catch (e: any) {
+//     console.error("WhatsApp invoice error:", e)
+//     alert(`❌ Error: ${e.message}`)
+//   }
+// }
+
 const handleWhatsAppShare = async (inv: Invoice) => {
-  const amount  = Number(inv.amount || 0)
-  const paid    = Number(inv.paid_amount || 0)
-  const balance = amount - paid
-
-  // Clean number
-  let phone = (inv.student_phone || "").replace(/\D/g, "")
-
-  // Add India country code if missing
-  if (phone.length === 10) {
-    phone = `91${phone}`
-  }
-
- if (!phone || phone.length < 10) {
-  alert("Invalid phone number")
-  return
-}
-
-// Ensure proper Indian format
-if (!phone.startsWith("91")) {
-  phone = `91${phone}`
-}
-
-// console.log("Sending WhatsApp to:", phone)
   try {
-    // Step 1 — Build invoice HTML
+    const amount = Number(inv.amount || 0)
+    const paid = Number(inv.paid_amount || 0)
+    const balance = amount - paid
+
+    // ─────────────────────────────────────────────
+    // Clean & validate phone number
+    // ─────────────────────────────────────────────
+    let phone = String(inv.student_phone || "")
+      .trim()
+      .replace(/\s+/g, "")
+      .replace(/[^0-9]/g, "")
+
+    // Remove leading zeros
+    phone = phone.replace(/^0+/, "")
+
+    // Convert to Indian format
+    if (phone.length === 10) {
+      phone = `91${phone}`
+    }
+
+    // Validate final number
+    if (!phone.startsWith("91") || phone.length !== 12) {
+      alert(`❌ Invalid phone number: ${inv.student_phone}`)
+      return
+    }
+
+    console.log("Original Number:", inv.student_phone)
+    console.log("Formatted Number:", phone)
+
+    // ─────────────────────────────────────────────
+    // Step 1 — Create Invoice HTML
+    // ─────────────────────────────────────────────
     const invoiceHTML = `
       <div id="invoice-capture" style="
         width:794px;
@@ -543,36 +733,77 @@ if (!phone.startsWith("91")) {
         color:#333;
         background:#fff;
       ">
-        <div style="display:flex;justify-content:space-between;border-bottom:2px solid #1f7fa6;padding-bottom:10px">
+        <div style="
+          display:flex;
+          justify-content:space-between;
+          border-bottom:2px solid #1f7fa6;
+          padding-bottom:10px;
+        ">
           <div>
-            <h2 style="margin:0;font-size:20px">DNYANSAGAR CLASSES</h2>
+            <h2 style="margin:0;font-size:20px">
+              DNYANSAGAR CLASSES
+            </h2>
+
             <p style="margin:2px 0;font-size:13px">
-              201/A, New Excelsior Building Opp. Crown Hotel, KHADKI Pune - 411003
+              201/A, New Excelsior Building Opp. Crown Hotel,
+              KHADKI Pune - 411003
             </p>
+
             <p style="margin:2px 0;font-size:13px">
-              Phone: 8862010906 | State: Maharashtra
+              Phone: 8862010906 | Maharashtra
             </p>
           </div>
         </div>
 
-        <div style="text-align:center;color:#1f7fa6;font-size:22px;font-weight:bold;margin:15px 0">
+        <div style="
+          text-align:center;
+          color:#1f7fa6;
+          font-size:22px;
+          font-weight:bold;
+          margin:15px 0;
+        ">
           Payment Receipt
         </div>
 
-        <div style="display:flex;justify-content:space-between;margin-top:10px">
+        <div style="
+          display:flex;
+          justify-content:space-between;
+          margin-top:10px;
+        ">
           <div>
-            <p><b>Received From:</b> ${inv.student_name}</p>
-            <p><b>Contact:</b> ${inv.student_phone || "-"}</p>
-            <p><b>Amount in words:</b> ${paid.toLocaleString()} Rupees only</p>
+            <p>
+              <b>Received From:</b>
+              ${inv.student_name}
+            </p>
+
+            <p>
+              <b>Contact:</b>
+              ${inv.student_phone || "-"}
+            </p>
+
+            <p>
+              <b>Amount in words:</b>
+              ${paid.toLocaleString()} Rupees only
+            </p>
           </div>
 
           <div style="text-align:right">
-            <p><b>Receipt No:</b> ${inv.id}</p>
-            <p><b>Date:</b> ${fmtDate(inv.install_date)}</p>
+            <p>
+              <b>Receipt No:</b> ${inv.id}
+            </p>
+
+            <p>
+              <b>Date:</b> ${fmtDate(inv.install_date)}
+            </p>
           </div>
         </div>
 
-        <table style="width:100%;border-collapse:collapse;margin-top:20px;font-size:14px">
+        <table style="
+          width:100%;
+          border-collapse:collapse;
+          margin-top:20px;
+          font-size:14px;
+        ">
           <tr>
             <td style="padding:6px 0">Received</td>
             <td style="text-align:right;font-weight:bold">
@@ -595,23 +826,35 @@ if (!phone.startsWith("91")) {
           </tr>
 
           <tr style="border-top:1px solid #999">
-            <td style="padding:6px 0"><b>Current Balance</b></td>
+            <td style="padding:6px 0">
+              <b>Current Balance</b>
+            </td>
+
             <td style="text-align:right;font-weight:bold">
               ₹ ${balance.toLocaleString()}
             </td>
           </tr>
         </table>
 
-        <div style="margin-top:50px;text-align:right">
+        <div style="
+          margin-top:50px;
+          text-align:right;
+        ">
           <div>For: DNYANSAGAR CLASSES</div>
-          <div style="font-weight:bold;margin-top:30px">
+
+          <div style="
+            font-weight:bold;
+            margin-top:30px;
+          ">
             Authorized Signatory
           </div>
         </div>
       </div>
     `
 
-    // Step 2 — Convert HTML to image
+    // ─────────────────────────────────────────────
+    // Step 2 — Convert HTML to Image
+    // ─────────────────────────────────────────────
     const { default: html2canvas } = await import("html2canvas")
 
     const container = document.createElement("div")
@@ -633,14 +876,23 @@ if (!phone.startsWith("91")) {
 
     document.body.removeChild(container)
 
-    // Step 3 — Convert canvas to blob
+    // ─────────────────────────────────────────────
+    // Step 3 — Convert Canvas to Blob
+    // ─────────────────────────────────────────────
     const blob: Blob = await new Promise((resolve) =>
       canvas.toBlob((b) => resolve(b!), "image/png", 1.0)
     )
 
-    // Step 4 — Upload image
+    // ─────────────────────────────────────────────
+    // Step 4 — Upload Invoice Image
+    // ─────────────────────────────────────────────
     const uploadForm = new FormData()
-    uploadForm.append("image", blob, `invoice-${inv.id}.png`)
+
+    uploadForm.append(
+      "image",
+      blob,
+      `invoice-${inv.id}.png`
+    )
 
     const uploadRes = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/whatsapp/upload-invoice`,
@@ -659,7 +911,11 @@ if (!phone.startsWith("91")) {
 
     const imageUrl = uploadJson.url
 
-    // Step 5 — Send invoice on WhatsApp
+    console.log("Uploaded Image URL:", imageUrl)
+
+    // ─────────────────────────────────────────────
+    // Step 5 — Send WhatsApp Message
+    // ─────────────────────────────────────────────
     const sendRes = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/whatsapp/send-invoice`,
       {
@@ -679,10 +935,12 @@ if (!phone.startsWith("91")) {
 
     const sendJson = await sendRes.json()
 
+    console.log("WhatsApp Response:", sendJson)
+
     if (sendJson.success) {
-      alert(`✅ Invoice sent to ${phone}`)
+      alert(`✅ Invoice sent successfully to ${phone}`)
     } else {
-      alert(`❌ Failed to send: ${sendJson.message}`)
+      alert(`❌ Failed: ${sendJson.message || "WhatsApp error"}`)
     }
 
   } catch (e: any) {
