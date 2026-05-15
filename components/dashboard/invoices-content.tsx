@@ -824,7 +824,7 @@ const handleWhatsAppShare = async (inv: Invoice) => {
     uploadForm.append("image", blob, `invoice-${inv.id}.png`)
 
     const uploadRes  = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/whatsapp/upload-invoice`,
+      `${process.env.NEXT_PUBLIC_API_URL}/whatsapp/upload-invoice`,
       { method: "POST", body: uploadForm }
     )
     const uploadJson = await uploadRes.json()
