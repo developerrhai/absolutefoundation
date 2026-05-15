@@ -83,6 +83,7 @@ export function InvoicesContent() {
   const [viewOpen, setViewOpen] = useState(false)
   const [selected, setSelected] = useState<Invoice | null>(null)
   const [editing, setEditing] = useState<Invoice | null>(null)
+  const [whatsappSending, setWhatsappSending] = useState<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [students, setStudents] = useState<Student[]>([])
@@ -119,9 +120,7 @@ export function InvoicesContent() {
 
   useEffect(() => {
     if (!studentSearch.trim() || studentSearch.length < 1) {
-      setStudents([])
-      setShowDropdown(false)
-      return
+      setStudents([]); setShowDropdown(false); return
     }
     const timer = setTimeout(async () => {
       setStudentsLoading(true)
@@ -129,11 +128,8 @@ export function InvoicesContent() {
         const res: any = await studentsApi.getAll({ search: studentSearch })
         setStudents(res.data || [])
         setShowDropdown(true)
-      } catch {
-        setStudents([])
-      } finally {
-        setStudentsLoading(false)
-      }
+      } catch { setStudents([]) }
+      finally { setStudentsLoading(false) }
     }, 300)
     return () => clearTimeout(timer)
   }, [studentSearch])
@@ -192,7 +188,6 @@ export function InvoicesContent() {
         transaction_type: form.transaction_type,
         description: form.description,
       }
-
       if (editing) {
         await invoicesApi.update(editing.id, payload)
       } else {
@@ -233,7 +228,7 @@ export function InvoicesContent() {
     setModalOpen(true)
   }
 
-  // ── Export Excel (CSV) ─────────────────────────────────────
+  // ── Export CSV ─────────────────────────────────────────────
   const handleExportExcel = () => {
     if (!invoices.length) { alert("No invoices to export"); return }
     const headers = ["Invoice ID","Student Name","Student ID","Amount","Paid Amount","Balance","Install Date","Due Date","Transaction Type","Status","Description"]
@@ -242,14 +237,11 @@ export function InvoicesContent() {
       const paid = Number(inv.paid_amount || 0)
       return [
         `INV${String(inv.id).padStart(3, "0")}`,
-        inv.student_name || "",
-        inv.student_id || "",
+        inv.student_name || "", inv.student_id || "",
         amount, paid, amount - paid,
         inv.install_date ? new Date(inv.install_date).toLocaleDateString("en-CA") : "",
         inv.due_date ? new Date(inv.due_date).toLocaleDateString("en-CA") : "",
-        inv.transaction_type || "",
-        getStatus(inv),
-        inv.description || "",
+        inv.transaction_type || "", getStatus(inv), inv.description || "",
       ]
     })
     const esc = (v: string | number) => `"${String(v).replace(/"/g, "\"\"")}"`
@@ -262,7 +254,7 @@ export function InvoicesContent() {
     URL.revokeObjectURL(a.href)
   }
 
-  // ── Download Import Template ───────────────────────────────
+  // ── Download Template ──────────────────────────────────────
   const downloadTemplate = () => {
     const headers = ["student_name","amount","paid_amount","install_date","due_date","transaction_type","description"]
     const sample = ["John Doe","5000","2000","2024-01-15","2024-02-15","Cash","Tuition Fee – January"]
@@ -282,23 +274,14 @@ export function InvoicesContent() {
     setImporting(true)
     try {
       const text = await file.text()
-      // Split lines and skip the header row
       const lines = text.split(/\r?\n/).filter(l => l.trim())
       const [, ...rows] = lines
       let success = 0, failed = 0
-
       for (const row of rows) {
-        // Basic CSV parse (handles quoted fields)
         const cols = row.match(/("(?:[^"]|"")*"|[^,]*)/g)
           ?.map(c => c.replace(/^"|"$/g, "").replace(/""/g, '"').trim()) ?? []
-
-        const [
-          student_name, amount, paid_amount,
-          install_date, due_date, transaction_type, description,
-        ] = cols
-
+        const [student_name, amount, paid_amount, install_date, due_date, transaction_type, description] = cols
         if (!student_name || !amount || !due_date) { failed++; continue }
-
         try {
           await invoicesApi.create({
             student_name,
@@ -310,11 +293,8 @@ export function InvoicesContent() {
             description: description || "",
           })
           success++
-        } catch {
-          failed++
-        }
+        } catch { failed++ }
       }
-
       alert(`Import complete: ${success} imported, ${failed} failed.`)
       load()
     } catch {
@@ -339,10 +319,6 @@ export function InvoicesContent() {
     w.document.write(`
 <html><head><title>Receipt #${inv.id}</title><style>
 @page{size:A4;margin:25mm}
-.signature img {
-  height: 40px;
-}
-
 body{font-family:Arial,Helvetica,sans-serif;color:#333;margin:0}
 .container{width:100%}
 .header{display:flex;justify-content:space-between;align-items:flex-start}
@@ -448,7 +424,6 @@ body{font-family:Arial,Helvetica,sans-serif;margin:0;color:#333}
 <p><b>Date :</b> ${fmtDate(inv?.install_date)}</p>
 </div>
 </div>
-<div class="section-title">BILL TO</div>
 <p><b>Name:</b> ${inv?.student_name}</p>
 <p><b>Student ID:</b> ${inv?.student_id || "-"}</p>
 <p><b>Standard:</b> ${inv?.standard || "-"}</p>
@@ -509,447 +484,161 @@ Account Name : Vidyaaniketan Professional Academy
   }
 
   // ── WhatsApp Share ─────────────────────────────────────────
-// const handleWhatsAppShare = async (inv: Invoice) => {
-//   const amount  = Number(inv.amount || 0)
-//   const paid    = Number(inv.paid_amount || 0)
-//   const balance = amount - paid
-
-//   // Clean number
-//   let phone = (inv.student_phone || "").replace(/\D/g, "")
-
-//   // Add India country code if missing
-//   if (phone.length === 10) {
-//     phone = `91${phone}`
-//   }
-
-//  if (!phone || phone.length < 10) {
-//   alert("Invalid phone number")
-//   return
-// }
-
-// // Ensure proper Indian format
-// if (!phone.startsWith("91")) {
-//   phone = `91${phone}`
-// }
-
-// // console.log("Sending WhatsApp to:", phone)
-//   try {
-//     // Step 1 — Build invoice HTML
-//     const invoiceHTML = `
-//       <div id="invoice-capture" style="
-//         width:794px;
-//         padding:40px 36px;
-//         font-family:Arial,Helvetica,sans-serif;
-//         color:#333;
-//         background:#fff;
-//       ">
-//         <div style="display:flex;justify-content:space-between;border-bottom:2px solid #1f7fa6;padding-bottom:10px">
-//           <div>
-//             <h2 style="margin:0;font-size:20px">DNYANSAGAR CLASSES</h2>
-//             <p style="margin:2px 0;font-size:13px">
-//               201/A, New Excelsior Building Opp. Crown Hotel, KHADKI Pune - 411003
-//             </p>
-//             <p style="margin:2px 0;font-size:13px">
-//               Phone: 8862010906 | State: Maharashtra
-//             </p>
-//           </div>
-//         </div>
-
-//         <div style="text-align:center;color:#1f7fa6;font-size:22px;font-weight:bold;margin:15px 0">
-//           Payment Receipt
-//         </div>
-
-//         <div style="display:flex;justify-content:space-between;margin-top:10px">
-//           <div>
-//             <p><b>Received From:</b> ${inv.student_name}</p>
-//             <p><b>Contact:</b> ${inv.student_phone || "-"}</p>
-//             <p><b>Amount in words:</b> ${paid.toLocaleString()} Rupees only</p>
-//           </div>
-
-//           <div style="text-align:right">
-//             <p><b>Receipt No:</b> ${inv.id}</p>
-//             <p><b>Date:</b> ${fmtDate(inv.install_date)}</p>
-//           </div>
-//         </div>
-
-//         <table style="width:100%;border-collapse:collapse;margin-top:20px;font-size:14px">
-//           <tr>
-//             <td style="padding:6px 0">Received</td>
-//             <td style="text-align:right;font-weight:bold">
-//               ₹ ${paid.toLocaleString()}
-//             </td>
-//           </tr>
-
-//           <tr>
-//             <td style="padding:6px 0">Payment Mode</td>
-//             <td style="text-align:right;font-weight:bold">
-//               ${inv.transaction_type || "Cash"}
-//             </td>
-//           </tr>
-
-//           <tr>
-//             <td style="padding:6px 0">Previous Balance</td>
-//             <td style="text-align:right;font-weight:bold">
-//               ₹ ${amount.toLocaleString()}
-//             </td>
-//           </tr>
-
-//           <tr style="border-top:1px solid #999">
-//             <td style="padding:6px 0"><b>Current Balance</b></td>
-//             <td style="text-align:right;font-weight:bold">
-//               ₹ ${balance.toLocaleString()}
-//             </td>
-//           </tr>
-//         </table>
-
-//         <div style="margin-top:50px;text-align:right">
-//           <div>For: DNYANSAGAR CLASSES</div>
-//           <div style="font-weight:bold;margin-top:30px">
-//             Authorized Signatory
-//           </div>
-//         </div>
-//       </div>
-//     `
-
-//     // Step 2 — Convert HTML to image
-//     const { default: html2canvas } = await import("html2canvas")
-
-//     const container = document.createElement("div")
-//     container.style.position = "fixed"
-//     container.style.top = "-9999px"
-//     container.style.left = "-9999px"
-//     container.innerHTML = invoiceHTML
-
-//     document.body.appendChild(container)
-
-//     const canvas = await html2canvas(
-//       container.querySelector("#invoice-capture") as HTMLElement,
-//       {
-//         scale: 2,
-//         useCORS: true,
-//         backgroundColor: "#ffffff",
-//       }
-//     )
-
-//     document.body.removeChild(container)
-
-//     // Step 3 — Convert canvas to blob
-//     const blob: Blob = await new Promise((resolve) =>
-//       canvas.toBlob((b) => resolve(b!), "image/png", 1.0)
-//     )
-
-//     // Step 4 — Upload image
-//     const uploadForm = new FormData()
-//     uploadForm.append("image", blob, `invoice-${inv.id}.png`)
-
-//     const uploadRes = await fetch(
-//       `${process.env.NEXT_PUBLIC_API_URL}/api/whatsapp/upload-invoice`,
-//       {
-//         method: "POST",
-//         body: uploadForm,
-//       }
-//     )
-
-//     const uploadJson = await uploadRes.json()
-
-//     if (!uploadJson.success) {
-//       alert(`❌ Image upload failed: ${uploadJson.message}`)
-//       return
-//     }
-
-//     const imageUrl = uploadJson.url
-
-//     // Step 5 — Send invoice on WhatsApp
-//     const sendRes = await fetch(
-//       `${process.env.NEXT_PUBLIC_API_URL}/api/whatsapp/send-invoice`,
-//       {
-//         method: "POST",
-//         headers: {
-//           "Content-Type": "application/json",
-//         },
-//         body: JSON.stringify({
-//           phone,
-//           studentName: inv.student_name,
-//           amountPaid: paid,
-//           balance,
-//           imageUrl,
-//         }),
-//       }
-//     )
-
-//     const sendJson = await sendRes.json()
-
-//     if (sendJson.success) {
-//       alert(`✅ Invoice sent to ${phone}`)
-//     } else {
-//       alert(`❌ Failed to send: ${sendJson.message}`)
-//     }
-
-//   } catch (e: any) {
-//     console.error("WhatsApp invoice error:", e)
-//     alert(`❌ Error: ${e.message}`)
-//   }
-// }
-
-const handleWhatsAppShare = async (inv: Invoice) => {
-  try {
-    const amount = Number(inv.amount || 0)
-    const paid = Number(inv.paid_amount || 0)
+  const handleWhatsAppShare = async (inv: Invoice) => {
+    const amount  = Number(inv.amount || 0)
+    const paid    = Number(inv.paid_amount || 0)
     const balance = amount - paid
 
-    // ─────────────────────────────────────────────
-    // Clean & validate phone number
-    // ─────────────────────────────────────────────
-    let phone = String(inv.student_phone || "")
-      .trim()
-      .replace(/\s+/g, "")
-      .replace(/[^0-9]/g, "")
-
-    // Remove leading zeros
-    phone = phone.replace(/^0+/, "")
-
-    // Convert to Indian format
-    if (phone.length === 10) {
-      phone = `91${phone}`
-    }
-
-    // Validate final number
+    // Clean & validate phone
+    let phone = String(inv.student_phone || "").trim().replace(/\D/g, "").replace(/^0+/, "")
+    if (phone.length === 10) phone = `91${phone}`
     if (!phone.startsWith("91") || phone.length !== 12) {
-      alert(`❌ Invalid phone number: ${inv.student_phone}`)
+      alert(`❌ Invalid or missing phone number for ${inv.student_name}`)
       return
     }
 
-    console.log("Original Number:", inv.student_phone)
-    console.log("Formatted Number:", phone)
+    setWhatsappSending(inv.id)
 
-    // ─────────────────────────────────────────────
-    // Step 1 — Create Invoice HTML
-    // ─────────────────────────────────────────────
-    const invoiceHTML = `
-      <div id="invoice-capture" style="
-        width:794px;
-        padding:40px 36px;
-        font-family:Arial,Helvetica,sans-serif;
-        color:#333;
-        background:#fff;
-      ">
-        <div style="
-          display:flex;
-          justify-content:space-between;
-          border-bottom:2px solid #1f7fa6;
-          padding-bottom:10px;
+    try {
+      // ── Step 1: Build invoice HTML ────────────────────────
+      const invoiceHTML = `
+        <div id="invoice-capture" style="
+          width:794px; padding:40px 36px;
+          font-family:Arial,Helvetica,sans-serif;
+          color:#333; background:#fff;
         ">
-          <div>
-            <h2 style="margin:0;font-size:20px">
-              DNYANSAGAR CLASSES
-            </h2>
-
-            <p style="margin:2px 0;font-size:13px">
-              201/A, New Excelsior Building Opp. Crown Hotel,
-              KHADKI Pune - 411003
-            </p>
-
-            <p style="margin:2px 0;font-size:13px">
-              Phone: 8862010906 | Maharashtra
-            </p>
-          </div>
-        </div>
-
-        <div style="
-          text-align:center;
-          color:#1f7fa6;
-          font-size:22px;
-          font-weight:bold;
-          margin:15px 0;
-        ">
-          Payment Receipt
-        </div>
-
-        <div style="
-          display:flex;
-          justify-content:space-between;
-          margin-top:10px;
-        ">
-          <div>
-            <p>
-              <b>Received From:</b>
-              ${inv.student_name}
-            </p>
-
-            <p>
-              <b>Contact:</b>
-              ${inv.student_phone || "-"}
-            </p>
-
-            <p>
-              <b>Amount in words:</b>
-              ${paid.toLocaleString()} Rupees only
-            </p>
+          <div style="display:flex;justify-content:space-between;
+            border-bottom:2px solid #1f7fa6;padding-bottom:10px">
+            <div>
+              <h2 style="margin:0;font-size:20px">DNYANSAGAR CLASSES</h2>
+              <p style="margin:2px 0;font-size:13px">
+                201/A, New Excelsior Building Opp. Crown Hotel, KHADKI Pune - 411003
+              </p>
+              <p style="margin:2px 0;font-size:13px">Phone: 8862010906 | Maharashtra</p>
+            </div>
           </div>
 
-          <div style="text-align:right">
-            <p>
-              <b>Receipt No:</b> ${inv.id}
-            </p>
+          <div style="text-align:center;color:#1f7fa6;font-size:22px;
+            font-weight:bold;margin:15px 0">Payment Receipt</div>
 
-            <p>
-              <b>Date:</b> ${fmtDate(inv.install_date)}
-            </p>
+          <div style="display:flex;justify-content:space-between;margin-top:10px">
+            <div>
+              <p><b>Received From:</b> ${inv.student_name}</p>
+              <p><b>Contact:</b> ${inv.student_phone || "-"}</p>
+              <p><b>Amount in words:</b> ${paid.toLocaleString()} Rupees only</p>
+            </div>
+            <div style="text-align:right">
+              <p><b>Receipt No:</b> ${inv.id}</p>
+              <p><b>Date:</b> ${fmtDate(inv.install_date)}</p>
+            </div>
+          </div>
+
+          <table style="width:100%;border-collapse:collapse;margin-top:20px;font-size:14px">
+            <tr>
+              <td style="padding:8px 0;border-bottom:1px solid #eee">Received</td>
+              <td style="text-align:right;font-weight:bold;border-bottom:1px solid #eee">
+                ₹ ${paid.toLocaleString()}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;border-bottom:1px solid #eee">Payment Mode</td>
+              <td style="text-align:right;font-weight:bold;border-bottom:1px solid #eee">
+                ${inv.transaction_type || "Cash"}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;border-bottom:1px solid #eee">Total Fee</td>
+              <td style="text-align:right;font-weight:bold;border-bottom:1px solid #eee">
+                ₹ ${amount.toLocaleString()}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0"><b>Current Balance</b></td>
+              <td style="text-align:right;font-weight:bold;color:#dc2626">
+                ₹ ${balance.toLocaleString()}
+              </td>
+            </tr>
+          </table>
+
+          <div style="margin-top:50px;text-align:right">
+            <div>For: DNYANSAGAR CLASSES</div>
+            <div style="font-weight:bold;margin-top:30px;border-top:1px solid #333;
+              padding-top:8px;display:inline-block;min-width:150px">
+              Authorized Signatory
+            </div>
           </div>
         </div>
+      `
 
-        <table style="
-          width:100%;
-          border-collapse:collapse;
-          margin-top:20px;
-          font-size:14px;
-        ">
-          <tr>
-            <td style="padding:6px 0">Received</td>
-            <td style="text-align:right;font-weight:bold">
-              ₹ ${paid.toLocaleString()}
-            </td>
-          </tr>
+      // ── Step 2: Screenshot with html2canvas ───────────────
+      const { default: html2canvas } = await import("html2canvas")
+      const container = document.createElement("div")
+      container.style.cssText = "position:fixed;top:-9999px;left:-9999px;z-index:-1"
+      container.innerHTML = invoiceHTML
+      document.body.appendChild(container)
 
-          <tr>
-            <td style="padding:6px 0">Payment Mode</td>
-            <td style="text-align:right;font-weight:bold">
-              ${inv.transaction_type || "Cash"}
-            </td>
-          </tr>
+      const canvas = await html2canvas(
+        container.querySelector("#invoice-capture") as HTMLElement,
+        { scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false }
+      )
+      document.body.removeChild(container)
 
-          <tr>
-            <td style="padding:6px 0">Previous Balance</td>
-            <td style="text-align:right;font-weight:bold">
-              ₹ ${amount.toLocaleString()}
-            </td>
-          </tr>
+      // ── Step 3: Canvas → Blob ──────────────────────────────
+      const blob: Blob = await new Promise((resolve, reject) =>
+        canvas.toBlob(
+          (b) => b ? resolve(b) : reject(new Error("Canvas toBlob failed")),
+          "image/png", 1.0
+        )
+      )
 
-          <tr style="border-top:1px solid #999">
-            <td style="padding:6px 0">
-              <b>Current Balance</b>
-            </td>
+      // ── Step 4: Upload to backend ──────────────────────────
+      const uploadForm = new FormData()
+      uploadForm.append("image", blob, `invoice-${inv.id}.png`)
 
-            <td style="text-align:right;font-weight:bold">
-              ₹ ${balance.toLocaleString()}
-            </td>
-          </tr>
-        </table>
+      const uploadRes  = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/whatsapp/upload-invoice`,
+        { method: "POST", body: uploadForm }
+      )
+      const uploadJson = await uploadRes.json()
 
-        <div style="
-          margin-top:50px;
-          text-align:right;
-        ">
-          <div>For: DNYANSAGAR CLASSES</div>
-
-          <div style="
-            font-weight:bold;
-            margin-top:30px;
-          ">
-            Authorized Signatory
-          </div>
-        </div>
-      </div>
-    `
-
-    // ─────────────────────────────────────────────
-    // Step 2 — Convert HTML to Image
-    // ─────────────────────────────────────────────
-    const { default: html2canvas } = await import("html2canvas")
-
-    const container = document.createElement("div")
-    container.style.position = "fixed"
-    container.style.top = "-9999px"
-    container.style.left = "-9999px"
-    container.innerHTML = invoiceHTML
-
-    document.body.appendChild(container)
-
-    const canvas = await html2canvas(
-      container.querySelector("#invoice-capture") as HTMLElement,
-      {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
+      if (!uploadJson.success) {
+        alert(`❌ Image upload failed: ${uploadJson.message}`)
+        return
       }
-    )
 
-    document.body.removeChild(container)
+      console.log("✅ Invoice uploaded:", uploadJson.url)
 
-    // ─────────────────────────────────────────────
-    // Step 3 — Convert Canvas to Blob
-    // ─────────────────────────────────────────────
-    const blob: Blob = await new Promise((resolve) =>
-      canvas.toBlob((b) => resolve(b!), "image/png", 1.0)
-    )
+      // ── Step 5: Send WhatsApp ──────────────────────────────
+      const sendRes  = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/whatsapp/send-invoice`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phone,
+            studentName: inv.student_name,
+            amountPaid:  paid,
+            balance,
+            imageUrl:    uploadJson.url,
+          }),
+        }
+      )
+      const sendJson = await sendRes.json()
+      console.log("📱 WhatsApp response:", sendJson)
 
-    // ─────────────────────────────────────────────
-    // Step 4 — Upload Invoice Image
-    // ─────────────────────────────────────────────
-    const uploadForm = new FormData()
-
-    uploadForm.append(
-      "image",
-      blob,
-      `invoice-${inv.id}.png`
-    )
-
-    const uploadRes = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/whatsapp/upload-invoice`,
-      {
-        method: "POST",
-        body: uploadForm,
+      if (sendJson.success) {
+        alert(`✅ Invoice sent to ${inv.student_name}!`)
+      } else {
+        alert(`❌ Failed: ${sendJson.message || "WhatsApp API error"}`)
       }
-    )
 
-    const uploadJson = await uploadRes.json()
-
-    if (!uploadJson.success) {
-      alert(`❌ Image upload failed: ${uploadJson.message}`)
-      return
+    } catch (e: any) {
+      console.error("WhatsApp invoice error:", e)
+      alert(`❌ Error: ${e.message}`)
+    } finally {
+      setWhatsappSending(null)
     }
-
-    const imageUrl = uploadJson.url
-
-    console.log("Uploaded Image URL:", imageUrl)
-
-    // ─────────────────────────────────────────────
-    // Step 5 — Send WhatsApp Message
-    // ─────────────────────────────────────────────
-    const sendRes = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/whatsapp/send-invoice`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          phone,
-          studentName: inv.student_name,
-          amountPaid: paid,
-          balance,
-          imageUrl,
-        }),
-      }
-    )
-
-    const sendJson = await sendRes.json()
-
-    console.log("WhatsApp Response:", sendJson)
-
-    if (sendJson.success) {
-      alert(`✅ Invoice sent successfully to ${phone}`)
-    } else {
-      alert(`❌ Failed: ${sendJson.message || "WhatsApp error"}`)
-    }
-
-  } catch (e: any) {
-    console.error("WhatsApp invoice error:", e)
-    alert(`❌ Error: ${e.message}`)
   }
-}
-
-
 
   const f = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }))
   const filteredInvoices = invoices.filter(inv =>
@@ -962,9 +651,9 @@ const handleWhatsAppShare = async (inv: Invoice) => {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: "Total Invoiced", value: summary.total_invoiced, cls: "from-blue-500 to-blue-600" },
-          { label: "Total Collected", value: summary.total_paid, cls: "from-emerald-500 to-emerald-600" },
-          { label: "Pending Amount", value: summary.total_pending, cls: "from-amber-500 to-amber-600" },
+          { label: "Total Invoiced",  value: summary.total_invoiced, cls: "from-blue-500 to-blue-600" },
+          { label: "Total Collected", value: summary.total_paid,     cls: "from-emerald-500 to-emerald-600" },
+          { label: "Pending Amount",  value: summary.total_pending,  cls: "from-amber-500 to-amber-600" },
         ].map(({ label, value, cls }) => (
           <Card key={label} className={`bg-gradient-to-br ${cls} text-white border-0`}>
             <CardContent className="p-4">
@@ -1009,7 +698,7 @@ const handleWhatsAppShare = async (inv: Invoice) => {
               <FileSpreadsheet className="h-4 w-4 mr-2" /> Export
             </Button>
 
-            {/* Import Template Download */}
+            {/* Template */}
             <Button onClick={downloadTemplate} variant="outline" title="Download import template CSV">
               <Download className="h-4 w-4 mr-2" /> Template
             </Button>
@@ -1087,22 +776,36 @@ const handleWhatsAppShare = async (inv: Invoice) => {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center justify-center gap-1">
+                            {/* View */}
                             <Button size="sm" variant="outline" className="h-8 w-8 p-0"
                               onClick={() => { setSelected(inv); setViewOpen(true) }}>
                               <Eye className="h-4 w-4" />
                             </Button>
+                            {/* Edit */}
                             <Button size="sm" variant="outline" className="h-8 w-8 p-0"
                               onClick={() => openEdit(inv)}>
                               <Edit2 className="h-4 w-4" />
                             </Button>
+                            {/* Print */}
                             <Button size="sm" variant="outline" className="h-8 w-8 p-0"
                               onClick={() => handlePrint(inv)}>
                               <Printer className="h-4 w-4" />
                             </Button>
-                            <Button size="sm" variant="outline" className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:border-green-300"
-                              onClick={() => handleWhatsAppShare(inv)}>
-                              <MessageCircle className="h-4 w-4" />
+                            {/* WhatsApp */}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:border-green-300"
+                              onClick={() => handleWhatsAppShare(inv)}
+                              disabled={whatsappSending === inv.id}
+                              title="Send invoice on WhatsApp"
+                            >
+                              {whatsappSending === inv.id
+                                ? <Loader2 className="h-4 w-4 animate-spin" />
+                                : <MessageCircle className="h-4 w-4" />
+                              }
                             </Button>
+                            {/* Delete */}
                             <Button size="sm" variant="destructive" className="h-8 w-8 p-0"
                               onClick={() => handleDelete(inv.id)}>
                               <Trash2 className="h-4 w-4" />
@@ -1119,13 +822,12 @@ const handleWhatsAppShare = async (inv: Invoice) => {
         </CardContent>
       </Card>
 
-      {/* ── Create / Edit Invoice Modal ───────────────────────── */}
+      {/* ── Create / Edit Modal ───────────────────────────────── */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{editing ? "Edit Invoice" : "Create New Invoice"}</DialogTitle>
           </DialogHeader>
-
           <div className="grid gap-4 py-4">
             {/* Student Search */}
             <div className="space-y-2">
@@ -1152,7 +854,8 @@ const handleWhatsAppShare = async (inv: Invoice) => {
                       )}
                     </p>
                   </div>
-                  <button onClick={clearStudent} className="text-emerald-500 hover:text-red-500 transition-colors ml-2 mt-0.5 shrink-0" title="Change student">
+                  <button onClick={clearStudent}
+                    className="text-emerald-500 hover:text-red-500 transition-colors ml-2 mt-0.5 shrink-0">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
@@ -1171,7 +874,8 @@ const handleWhatsAppShare = async (inv: Invoice) => {
                       <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
                     )}
                     {studentSearch && !studentsLoading && (
-                      <button onClick={clearStudent} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                      <button onClick={clearStudent}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                         <X className="h-4 w-4" />
                       </button>
                     )}
@@ -1220,7 +924,7 @@ const handleWhatsAppShare = async (inv: Invoice) => {
               </div>
             </div>
 
-            {/* Installment Date + Transaction Type */}
+            {/* Paid Date + Transaction Type */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Paid Date</Label>
@@ -1247,7 +951,8 @@ const handleWhatsAppShare = async (inv: Invoice) => {
             {/* Description */}
             <div className="space-y-2">
               <Label>Description</Label>
-              <Input value={form.description} onChange={e => f("description", e.target.value)} placeholder="e.g. Tuition Fee – January" />
+              <Input value={form.description} onChange={e => f("description", e.target.value)}
+                placeholder="e.g. Tuition Fee – January" />
             </div>
           </div>
 
@@ -1261,7 +966,7 @@ const handleWhatsAppShare = async (inv: Invoice) => {
         </DialogContent>
       </Dialog>
 
-      {/* ── View Modal ───────────────────────────────────────── */}
+      {/* ── View Modal ────────────────────────────────────────── */}
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Invoice Details</DialogTitle></DialogHeader>
@@ -1275,14 +980,14 @@ const handleWhatsAppShare = async (inv: Invoice) => {
                   <p className="text-muted-foreground">Invoice #INV{String(selected.id).padStart(3, "0")}</p>
                 </div>
                 {([
-                  ["Student", selected.student_name],
-                  ["Description", selected.description],
+                  ["Student",          selected.student_name],
+                  ["Description",      selected.description],
                   ["Transaction Type", selected.transaction_type],
-                  ["Paid Date", fmtDate(selected.install_date)],
-                  ["Due Date", fmtDate(selected.due_date)],
-                  ["Total", `₹${Number(selected.amount).toLocaleString()}`],
-                  ["Paid", `₹${Number(selected.paid_amount).toLocaleString()}`],
-                  ["Balance", `₹${(Number(selected.amount) - Number(selected.paid_amount)).toLocaleString()}`],
+                  ["Paid Date",        fmtDate(selected.install_date)],
+                  ["Due Date",         fmtDate(selected.due_date)],
+                  ["Total",            `₹${Number(selected.amount).toLocaleString()}`],
+                  ["Paid",             `₹${Number(selected.paid_amount).toLocaleString()}`],
+                  ["Balance",          `₹${(Number(selected.amount) - Number(selected.paid_amount)).toLocaleString()}`],
                 ] as [string, string | undefined][]).map(([l, v]) => (
                   <div key={l} className="flex justify-between">
                     <span className="text-muted-foreground">{l}:</span>
