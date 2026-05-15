@@ -713,6 +713,22 @@ const handleWhatsAppShare = async (inv: Invoice) => {
   setWhatsappSending(inv.id)
 
   try {
+    // ── Convert images to base64 ───────────────────────────
+    const toBase64 = (url: string): Promise<string> =>
+      fetch(url)
+        .then(r => r.blob())
+        .then(blob => new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result as string)
+          reader.onerror = reject
+          reader.readAsDataURL(blob)
+        }))
+
+    const [logoBase64, signBase64] = await Promise.all([
+      toBase64("/logo.jpeg"),
+      toBase64("/sign.jpeg"),
+    ])
+
     const invoiceHTML = `
       <div id="invoice-capture" style="
         width:794px;
@@ -728,9 +744,8 @@ const handleWhatsAppShare = async (inv: Invoice) => {
           padding-bottom:10px;
         ">
           <div style="display:flex;align-items:center;gap:12px;">
-            <img src="https://dnyansagarclasses.vercel.app/logo.jpeg"
-                 style="height:60px;width:auto;"
-                 crossorigin="anonymous" />
+            <img src="${logoBase64}"
+                 style="height:60px;width:auto;" />
             <div>
               <h2 style="margin:0;font-size:20px">DNYANSAGAR CLASSES</h2>
               <p style="margin:2px 0;font-size:13px">
@@ -792,9 +807,8 @@ const handleWhatsAppShare = async (inv: Invoice) => {
 
         <div style="margin-top:50px;text-align:right;">
           <div>For: DNYANSAGAR CLASSES</div>
-          <img src="https://dnyansagarclasses.vercel.app/sign.jpeg"
-               style="height:60px;width:auto;margin-top:10px;"
-               crossorigin="anonymous" />
+          <img src="${signBase64}"
+               style="height:60px;width:auto;margin-top:10px;" />
           <div style="font-weight:bold;margin-top:8px;border-top:1px solid #333;
             padding-top:8px;display:inline-block;min-width:150px;">
             Authorized Signatory
@@ -803,8 +817,8 @@ const handleWhatsAppShare = async (inv: Invoice) => {
       </div>
     `
 
+    // rest of your code stays the same...
     const { toPng } = await import("html-to-image")
-
     const container = document.createElement("div")
     container.style.cssText = "position:fixed;top:-9999px;left:-9999px;z-index:-1;background:#fff;"
     container.innerHTML = invoiceHTML
@@ -816,10 +830,6 @@ const handleWhatsAppShare = async (inv: Invoice) => {
       quality: 1,
       pixelRatio: 2,
       backgroundColor: "#ffffff",
-      fetchRequestInit: {
-        cache: "no-cache",
-        mode: "cors",
-      },
     })
     document.body.removeChild(container)
 
@@ -872,7 +882,6 @@ const handleWhatsAppShare = async (inv: Invoice) => {
     setWhatsappSending(null)
   }
 }
-
   const f = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }))
   const filteredInvoices = invoices.filter(inv =>
     inv.student_name?.toLowerCase().includes(studentFilter.trim().toLowerCase())
