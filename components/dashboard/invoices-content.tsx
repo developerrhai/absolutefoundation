@@ -737,87 +737,76 @@ const handleWhatsAppShare = async (inv: Invoice) => {
         color:#333;
         background:#fff;
       ">
-        <div style="
-          display:flex;
-          justify-content:space-between;
-          border-bottom:2px solid #1f7fa6;
-          padding-bottom:10px;
-        ">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <img src="${logoBase64}"
-                 style="height:60px;width:auto;" />
-            <div>
-              <h2 style="margin:0;font-size:20px">DNYANSAGAR CLASSES</h2>
-              <p style="margin:2px 0;font-size:13px">
-                201/A, New Excelsior Building Opp. Crown Hotel, KHADKI Pune - 411003
-              </p>
-              <p style="margin:2px 0;font-size:13px">Phone: 8862010906 | Maharashtra</p>
-            </div>
+        <!-- Header: institute info left, logo right -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <h2 style="margin:0;font-size:20px;letter-spacing:0.5px;">DNYANSAGAR CLASSES</h2>
+            <p style="margin:2px 0;font-size:13px;">201/A, New Excelsior Building Opp. Crown Hotel, KHADKI Pune - 411003</p>
+            <p style="margin:2px 0;font-size:13px;">Phone no : 8862010906</p>
+            <p style="margin:2px 0;font-size:13px;">State: Maharashtra</p>
           </div>
+          <img src="${logoBase64}" style="width:70px;height:auto;" />
         </div>
 
+        <!-- Title -->
         <div style="
           text-align:center;
-          color:#1f7fa6;
           font-size:22px;
+          color:#1f7fa6;
           font-weight:bold;
-          margin:15px 0;
+          margin-top:15px;
+          padding-top:10px;
+          border-top:2px solid #1f7fa6;
         ">
           Payment Receipt
         </div>
 
-        <div style="display:flex;justify-content:space-between;margin-top:10px;">
-          <div>
-            <p><b>Received From:</b> ${inv.student_name}</p>
-            <p><b>Contact:</b> ${inv.student_phone || "-"}</p>
-            <p><b>Amount in words:</b> ${paid.toLocaleString()} Rupees only</p>
+        <!-- Content: left info + right receipt details -->
+        <div style="display:flex;justify-content:space-between;margin-top:25px;">
+          <div style="width:48%;">
+            <div style="font-weight:bold;margin-top:10px;">Received From</div>
+            <div style="margin-top:4px;">${inv.student_name}</div>
+            <div style="margin-top:4px;">Contact No : ${inv.student_phone || "-"}</div>
+            <div style="font-weight:bold;margin-top:10px;">Amount in words</div>
+            <div style="margin-top:4px;">${paid.toLocaleString()} Rupees only</div>
           </div>
-          <div style="text-align:right">
-            <p><b>Receipt No:</b> ${inv.id}</p>
-            <p><b>Date:</b> ${fmtDate(inv.install_date)}</p>
+          <div style="width:48%;">
+            <div style="text-align:right;font-size:14px;margin-bottom:15px;">
+              <div><b>Receipt Details</b></div>
+              <div>Receipt No : ${inv.id}</div>
+              <div><b>Date :</b> ${fmtDate(inv.install_date)}</div>
+            </div>
+            <table style="width:100%;border-collapse:collapse;">
+              <tr>
+                <td style="padding:6px 0;font-size:14px;">Received</td>
+                <td style="padding:6px 0;font-size:14px;text-align:right;font-weight:bold;">₹ ${paid.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 0;font-size:14px;">Payment mode</td>
+                <td style="padding:6px 0;font-size:14px;text-align:right;font-weight:bold;">${inv.transaction_type || "Online"}</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 0;font-size:14px;">Previous Balance</td>
+                <td style="padding:6px 0;font-size:14px;text-align:right;font-weight:bold;">₹ ${amount.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 0;font-size:14px;border-top:1px solid #999;">Current Balance</td>
+                <td style="padding:6px 0;font-size:14px;text-align:right;font-weight:bold;border-top:1px solid #999;">₹ ${balance.toLocaleString()}</td>
+              </tr>
+            </table>
           </div>
         </div>
 
-        <table style="width:100%;border-collapse:collapse;margin-top:20px;font-size:14px;">
-          <tr>
-            <td style="padding:8px 0;border-bottom:1px solid #eee;">Received</td>
-            <td style="text-align:right;font-weight:bold;border-bottom:1px solid #eee;">
-              ₹ ${paid.toLocaleString()}
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:8px 0;border-bottom:1px solid #eee;">Payment Mode</td>
-            <td style="text-align:right;font-weight:bold;border-bottom:1px solid #eee;">
-              ${inv.transaction_type || "Cash"}
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:8px 0;border-bottom:1px solid #eee;">Total Fee</td>
-            <td style="text-align:right;font-weight:bold;border-bottom:1px solid #eee;">
-              ₹ ${amount.toLocaleString()}
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:8px 0;"><b>Current Balance</b></td>
-            <td style="text-align:right;font-weight:bold;color:#dc2626;">
-              ₹ ${balance.toLocaleString()}
-            </td>
-          </tr>
-        </table>
-
-        <div style="margin-top:50px;text-align:right;">
-          <div>For: DNYANSAGAR CLASSES</div>
-          <img src="${signBase64}"
-               style="height:60px;width:auto;margin-top:10px;" />
-          <div style="font-weight:bold;margin-top:8px;border-top:1px solid #333;
-            padding-top:8px;display:inline-block;min-width:150px;">
-            Authorized Signatory
-          </div>
+        <!-- Signature: right aligned, sign image above Authorized Signatory -->
+        <div style="margin-top:70px;text-align:right;">
+          <div>For : DNYANSAGAR CLASSES</div>
+          <img src="${signBase64}" style="height:60px;margin:8px 0;display:block;margin-left:auto;" />
+          <div style="font-weight:bold;">Authorized Signatory</div>
         </div>
       </div>
     `
 
-    // rest of your code stays the same...
+    // ── Render & capture ───────────────────────────────────
     const { toPng } = await import("html-to-image")
     const container = document.createElement("div")
     container.style.cssText = "position:fixed;top:-9999px;left:-9999px;z-index:-1;background:#fff;"
@@ -882,6 +871,9 @@ const handleWhatsAppShare = async (inv: Invoice) => {
     setWhatsappSending(null)
   }
 }
+
+
+
   const f = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }))
   const filteredInvoices = invoices.filter(inv =>
     inv.student_name?.toLowerCase().includes(studentFilter.trim().toLowerCase())
