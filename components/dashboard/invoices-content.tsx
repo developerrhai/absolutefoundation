@@ -697,7 +697,6 @@ const handleWhatsAppShare = async (inv: Invoice) => {
   const paid    = Number(inv.paid_amount || 0)
   const balance = amount - paid
 
-  // ── Clean & validate phone ─────────────────────────────
   let phone = String(inv.student_phone || "")
     .trim()
     .replace(/\s+/g, "")
@@ -714,7 +713,6 @@ const handleWhatsAppShare = async (inv: Invoice) => {
   setWhatsappSending(inv.id)
 
   try {
-    // ── Step 1: Build invoice HTML ─────────────────────────
     const invoiceHTML = `
       <div id="invoice-capture" style="
         width:794px;
@@ -729,12 +727,17 @@ const handleWhatsAppShare = async (inv: Invoice) => {
           border-bottom:2px solid #1f7fa6;
           padding-bottom:10px;
         ">
-          <div>
-            <h2 style="margin:0;font-size:20px">DNYANSAGAR CLASSES</h2>
-            <p style="margin:2px 0;font-size:13px">
-              201/A, New Excelsior Building Opp. Crown Hotel, KHADKI Pune - 411003
-            </p>
-            <p style="margin:2px 0;font-size:13px">Phone: 8862010906 | Maharashtra</p>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <img src="https://dnyansagarclasses.vercel.app/logo.jpeg"
+                 style="height:60px;width:auto;"
+                 crossorigin="anonymous" />
+            <div>
+              <h2 style="margin:0;font-size:20px">DNYANSAGAR CLASSES</h2>
+              <p style="margin:2px 0;font-size:13px">
+                201/A, New Excelsior Building Opp. Crown Hotel, KHADKI Pune - 411003
+              </p>
+              <p style="margin:2px 0;font-size:13px">Phone: 8862010906 | Maharashtra</p>
+            </div>
           </div>
         </div>
 
@@ -789,7 +792,10 @@ const handleWhatsAppShare = async (inv: Invoice) => {
 
         <div style="margin-top:50px;text-align:right;">
           <div>For: DNYANSAGAR CLASSES</div>
-          <div style="font-weight:bold;margin-top:30px;border-top:1px solid #333;
+          <img src="https://dnyansagarclasses.vercel.app/sign.jpeg"
+               style="height:60px;width:auto;margin-top:10px;"
+               crossorigin="anonymous" />
+          <div style="font-weight:bold;margin-top:8px;border-top:1px solid #333;
             padding-top:8px;display:inline-block;min-width:150px;">
             Authorized Signatory
           </div>
@@ -797,7 +803,6 @@ const handleWhatsAppShare = async (inv: Invoice) => {
       </div>
     `
 
-    // ── Step 2: Render HTML & convert to PNG ───────────────
     const { toPng } = await import("html-to-image")
 
     const container = document.createElement("div")
@@ -807,22 +812,20 @@ const handleWhatsAppShare = async (inv: Invoice) => {
 
     const invoiceEl = container.querySelector("#invoice-capture") as HTMLElement
 
-   const dataUrl = await toPng(invoiceEl, {
-    quality: 1,
-    pixelRatio: 2,
-    backgroundColor: "#ffffff",
-    fetchRequestInit: {
-      cache: "no-cache",
-      mode: "cors",
-    },
-  })
+    const dataUrl = await toPng(invoiceEl, {
+      quality: 1,
+      pixelRatio: 2,
+      backgroundColor: "#ffffff",
+      fetchRequestInit: {
+        cache: "no-cache",
+        mode: "cors",
+      },
+    })
     document.body.removeChild(container)
 
-    // ── Step 3: DataURL → Blob ─────────────────────────────
     const fetchRes = await fetch(dataUrl)
     const blob     = await fetchRes.blob()
 
-    // ── Step 4: Upload image to backend ───────────────────
     const uploadForm = new FormData()
     uploadForm.append("image", blob, `invoice-${inv.id}.png`)
 
@@ -839,7 +842,6 @@ const handleWhatsAppShare = async (inv: Invoice) => {
 
     console.log("✅ Invoice uploaded:", uploadJson.url)
 
-    // ── Step 5: Send WhatsApp via backend ─────────────────
     const sendRes  = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/whatsapp/send-invoice`,
       {
@@ -870,7 +872,6 @@ const handleWhatsAppShare = async (inv: Invoice) => {
     setWhatsappSending(null)
   }
 }
-
 
   const f = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }))
   const filteredInvoices = invoices.filter(inv =>
