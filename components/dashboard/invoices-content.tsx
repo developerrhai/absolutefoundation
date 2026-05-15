@@ -714,8 +714,6 @@ const handleWhatsAppShare = async (inv: Invoice) => {
   setWhatsappSending(inv.id)
 
   try {
-    const origin = window.location.origin
-
     // ── Step 1: Build invoice HTML ─────────────────────────
     const invoiceHTML = `
       <div id="invoice-capture" style="
@@ -728,7 +726,6 @@ const handleWhatsAppShare = async (inv: Invoice) => {
         <div style="
           display:flex;
           justify-content:space-between;
-          align-items:center;
           border-bottom:2px solid #1f7fa6;
           padding-bottom:10px;
         ">
@@ -737,15 +734,8 @@ const handleWhatsAppShare = async (inv: Invoice) => {
             <p style="margin:2px 0;font-size:13px">
               201/A, New Excelsior Building Opp. Crown Hotel, KHADKI Pune - 411003
             </p>
-            <p style="margin:2px 0;font-size:13px">
-              Phone: 8862010906 | Maharashtra
-            </p>
+            <p style="margin:2px 0;font-size:13px">Phone: 8862010906 | Maharashtra</p>
           </div>
-          <img
-            src="${origin}/logo.jpeg"
-            style="width:70px;height:70px;object-fit:contain;"
-            crossorigin="anonymous"
-          />
         </div>
 
         <div style="
@@ -760,13 +750,13 @@ const handleWhatsAppShare = async (inv: Invoice) => {
 
         <div style="display:flex;justify-content:space-between;margin-top:10px;">
           <div>
-            <p style="margin:4px 0"><b>Received From:</b> ${inv.student_name}</p>
-            <p style="margin:4px 0"><b>Contact:</b> ${inv.student_phone || "-"}</p>
-            <p style="margin:4px 0"><b>Amount in words:</b> ${paid.toLocaleString()} Rupees only</p>
+            <p><b>Received From:</b> ${inv.student_name}</p>
+            <p><b>Contact:</b> ${inv.student_phone || "-"}</p>
+            <p><b>Amount in words:</b> ${paid.toLocaleString()} Rupees only</p>
           </div>
           <div style="text-align:right">
-            <p style="margin:4px 0"><b>Receipt No:</b> ${inv.id}</p>
-            <p style="margin:4px 0"><b>Date:</b> ${fmtDate(inv.install_date)}</p>
+            <p><b>Receipt No:</b> ${inv.id}</p>
+            <p><b>Date:</b> ${fmtDate(inv.install_date)}</p>
           </div>
         </div>
 
@@ -799,19 +789,8 @@ const handleWhatsAppShare = async (inv: Invoice) => {
 
         <div style="margin-top:50px;text-align:right;">
           <div>For: DNYANSAGAR CLASSES</div>
-          <img
-            src="${origin}/sign.jpeg"
-            style="height:60px;margin:8px 0;display:block;margin-left:auto;"
-            crossorigin="anonymous"
-          />
-          <div style="
-            font-weight:bold;
-            margin-top:8px;
-            border-top:1px solid #333;
-            padding-top:8px;
-            display:inline-block;
-            min-width:150px;
-          ">
+          <div style="font-weight:bold;margin-top:30px;border-top:1px solid #333;
+            padding-top:8px;display:inline-block;min-width:150px;">
             Authorized Signatory
           </div>
         </div>
@@ -828,29 +807,15 @@ const handleWhatsAppShare = async (inv: Invoice) => {
 
     const invoiceEl = container.querySelector("#invoice-capture") as HTMLElement
 
-    // Wait for images to load before capturing
-    const images = invoiceEl.querySelectorAll("img")
-    await Promise.all(
-      Array.from(images).map(
-        (img) =>
-          new Promise<void>((resolve) => {
-            if (img.complete) { resolve(); return }
-            img.onload  = () => resolve()
-            img.onerror = () => resolve() // resolve even on error so it doesn't hang
-          })
-      )
-    )
-
-    const dataUrl = await toPng(invoiceEl, {
-      quality: 1,
-      pixelRatio: 2,
-      backgroundColor: "#ffffff",
-      fetchRequestInit: {
-        cache: "no-cache",
-        mode:  "cors",
-      },
-    })
-
+   const dataUrl = await toPng(invoiceEl, {
+    quality: 1,
+    pixelRatio: 2,
+    backgroundColor: "#ffffff",
+    fetchRequestInit: {
+      cache: "no-cache",
+      mode: "cors",
+    },
+  })
     document.body.removeChild(container)
 
     // ── Step 3: DataURL → Blob ─────────────────────────────
@@ -862,7 +827,7 @@ const handleWhatsAppShare = async (inv: Invoice) => {
     uploadForm.append("image", blob, `invoice-${inv.id}.png`)
 
     const uploadRes  = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/whatsapp/upload-invoice`,
+      `${process.env.NEXT_PUBLIC_API_URL}/whatsapp/upload-invoice`,
       { method: "POST", body: uploadForm }
     )
     const uploadJson = await uploadRes.json()
@@ -875,8 +840,8 @@ const handleWhatsAppShare = async (inv: Invoice) => {
     console.log("✅ Invoice uploaded:", uploadJson.url)
 
     // ── Step 5: Send WhatsApp via backend ─────────────────
-    const sendRes = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/whatsapp/send-invoice`,
+    const sendRes  = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/whatsapp/send-invoice`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
