@@ -838,7 +838,7 @@ const handleWhatsAppShare = async (inv: Invoice) => {
 
     // ── Step 5: Send WhatsApp via backend ─────────────────
     const sendRes  = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/whatsapp/send-invoice`,
+      `${process.env.NEXT_PUBLIC_API_URL}/whatsapp/send-invoice`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
