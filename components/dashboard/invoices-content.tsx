@@ -743,15 +743,15 @@ const handleWhatsAppShare = async (inv: Invoice) => {
           border-bottom:2px solid #1f7fa6;
           padding-bottom:10px;
         ">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <img src="${logoBase64}"
-                 style="height:60px;width:auto;" />
+          <div style="display:flex;align-items:center;gap:20px;">
             <div>
               <h2 style="margin:0;font-size:20px">DNYANSAGAR CLASSES</h2>
               <p style="margin:2px 0;font-size:13px">
                 201/A, New Excelsior Building Opp. Crown Hotel, KHADKI Pune - 411003
               </p>
               <p style="margin:2px 0;font-size:13px">Phone: 8862010906 | Maharashtra</p>
+               <img src="${logoBase64}"
+                 style="height:60px;width:auto;" />
             </div>
           </div>
         </div>
@@ -805,7 +805,7 @@ const handleWhatsAppShare = async (inv: Invoice) => {
           </tr>
         </table>
 
-        <div style="margin-top:50px;text-align:right;">
+        <div style="margin-top:50px;text-align:right; align-items:right;">
           <div>For: DNYANSAGAR CLASSES</div>
           <img src="${signBase64}"
                style="height:60px;width:auto;margin-top:10px;" />
