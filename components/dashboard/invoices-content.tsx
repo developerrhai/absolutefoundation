@@ -1134,7 +1134,7 @@ const handleWhatsAppShare = async (inv: Invoice) => {
             {/* Amount fields */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Amount (₹) <span className="text-destructive">*</span></Label>
+                <Label>Balance Amount (₹) <span className="text-destructive">*</span></Label>
                 <Input type="number" value={form.amount} onChange={e => f("amount", e.target.value)} placeholder="Total fee" />
               </div>
               <div className="space-y-2">
