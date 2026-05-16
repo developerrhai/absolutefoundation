@@ -978,7 +978,7 @@ const handleWhatsAppShare = async (inv: Invoice) => {
                   <TableRow className="bg-slate-900">
                     <TableHead className="text-white font-semibold">ID</TableHead>
                     <TableHead className="text-white font-semibold">Student</TableHead>
-                    <TableHead className="text-white font-semibold hidden sm:table-cell">Total Amount</TableHead>
+                    <TableHead className="text-white font-semibold hidden sm:table-cell">Balance Amount</TableHead>
                     <TableHead className="text-white font-semibold hidden md:table-cell">Paid</TableHead>
                     <TableHead className="text-white font-semibold hidden lg:table-cell">Paid Date</TableHead>
                     <TableHead className="text-white font-semibold hidden lg:table-cell">Due Date</TableHead>
@@ -1134,7 +1134,7 @@ const handleWhatsAppShare = async (inv: Invoice) => {
             {/* Amount fields */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Total Amount (₹) <span className="text-destructive">*</span></Label>
+                <Label>Balance Amount (₹) <span className="text-destructive">*</span></Label>
                 <Input type="number" value={form.amount} onChange={e => f("amount", e.target.value)} placeholder="Total fee" />
               </div>
               <div className="space-y-2">
