@@ -228,7 +228,7 @@ function Pagination({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function StudentManagementContent() {
+export default function StudentManagementContent() {
   const router = useRouter();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1253,5 +1253,3 @@ export function StudentManagementContent() {
     </section>
   );
 }
-
-export default StudentManagementContent;
