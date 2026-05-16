@@ -1,41 +1,15 @@
-import type { Metadata } from 'next'
-import { Analytics } from '@vercel/analytics/next'
-import './globals.css'
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: 'Student Performance Analysis',
-  description: 'Comprehensive student performance dashboard with detailed analysis',
-  generator: 'v0.app',
-  icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
-  },
-}
+  title: "Student Performance Analysis | Dnyansagar Classes",
+  description: "Student performance dashboard with marks, attendance, and rank history",
+};
 
-export default function RootLayout({
+/** Nested layout only — no <html>/<body> (handled by app/(protected)/layout.tsx) */
+export default function PerformanceAnalysisLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
-  return (
-    <html lang="en" className="bg-slate-50">
-      <body className="font-sans antialiased">
-        {children}
-        {process.env.NODE_ENV === 'production' && <Analytics />}
-      </body>
-    </html>
-  )
+}: {
+  children: React.ReactNode;
+}) {
+  return <>{children}</>;
 }

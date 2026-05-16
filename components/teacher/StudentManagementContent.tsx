@@ -695,7 +695,9 @@ export function StudentManagementContent() {
   };
 
   const openPerformanceAnalysis = (student: Student) => {
-    router.push(`/teacherdashboard/performanceanalysis?studentId=${student.id}`);
+    router.push(
+      `/teacherdashboard/performanceanalysis?studentId=${encodeURIComponent(String(student.id))}`
+    );
   };
 
   // Derived: parsed shared total for live % in the bulk table

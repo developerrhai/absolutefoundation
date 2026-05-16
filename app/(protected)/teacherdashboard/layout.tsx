@@ -6,10 +6,11 @@ export const metadata: Metadata = {
   description: "Teacher management dashboard",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en">
-      <body>{children}</body>
-    </html>
-  );
+/** Teacher dashboard segment layout — no duplicate <html>/<body> */
+export default function TeacherDashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return <>{children}</>;
 }

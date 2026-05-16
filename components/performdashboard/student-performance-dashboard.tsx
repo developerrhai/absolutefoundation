@@ -398,21 +398,44 @@ export default function StudentPerformanceDashboard() {
     if (!selectedStudent) return;
     setStudentLoading(true);
     setError(null);
+
+    const [assessmentResult, attendanceResult, rankResult] = await Promise.allSettled([
+      teacherStudentAssessmentsApi.getByStudent(selectedStudent.id),
+      studentAttendanceApi.getByStudent(selectedStudent.id),
+      studentRankHistoryApi.getByStudent(selectedStudent.id),
+    ]);
+
+    if (assessmentResult.status === "rejected") {
+      setError(assessmentResult.reason?.message || "Failed to load marks from server");
+      setStudentLoading(false);
+      return;
+    }
+
     try {
-      const [assessmentRes, attendanceRes, rankRes]: any[] = await Promise.all([
-        teacherStudentAssessmentsApi.getByStudent(selectedStudent.id),
-        studentAttendanceApi.getByStudent(selectedStudent.id),
-        studentRankHistoryApi.getByStudent(selectedStudent.id),
-      ]);
+      const assessmentRes = assessmentResult.value as { data?: unknown[] };
+      const attendanceRes =
+        attendanceResult.status === "fulfilled"
+          ? (attendanceResult.value as { data?: unknown[] })
+          : { data: [] };
+      const rankRes =
+        rankResult.status === "fulfilled"
+          ? (rankResult.value as { data?: unknown[] })
+          : { data: [] };
 
       const rows = mapAssessmentRows(assessmentRes?.data || []);
       setHistoryRows(rows);
       setAssessmentCache((prev) => new Map(prev).set(selectedStudent.id, rows));
 
-      const attendanceList = attendanceRes?.data || [];
-      const rankList = rankRes?.data || [];
+      const attendanceList = (attendanceRes?.data || []) as Array<{ attendance_percentage?: number }>;
+      const rankList = (rankRes?.data || []) as Array<{
+        id?: number;
+        class_rank?: number;
+        total_students?: number;
+        average_percentage?: number;
+        snapshot_date?: string;
+      }>;
       setRankHistoryRows(
-        rankList.map((r: any) => ({
+        rankList.map((r) => ({
           id: r.id,
           class_rank: Number(r.class_rank) || 0,
           total_students: Number(r.total_students) || 0,
@@ -437,7 +460,13 @@ export default function StudentPerformanceDashboard() {
           const refreshed: any = await studentRankHistoryApi.getByStudent(selectedStudent.id);
           const refreshedRanks = refreshed?.data || [];
           setRankHistoryRows(
-            refreshedRanks.map((r: any) => ({
+            refreshedRanks.map((r: {
+              id?: number;
+              class_rank?: number;
+              total_students?: number;
+              average_percentage?: number;
+              snapshot_date?: string;
+            }) => ({
               id: r.id,
               class_rank: Number(r.class_rank) || 0,
               total_students: Number(r.total_students) || 0,
