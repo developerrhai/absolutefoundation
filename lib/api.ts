@@ -87,6 +87,8 @@ export const studentsApi = {
 
   getOne: (id: string | number) => get(`/students/${id}`),
 
+  getById: (id: string | number) => get(`/students/${id}`),
+
   create: (data: Record<string, unknown>) => post("/students", data),
 
   update: (id: string | number, data: Record<string, unknown>) =>

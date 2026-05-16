@@ -177,34 +177,73 @@ export function InvoicesContent() {
     setModalOpen(true)
   }
 
-  const handleSave = async () => {
-    if (!form.student_name || !form.amount || !form.due_date) {
-      alert("Fill required fields"); return
-    }
-    setSaving(true)
-    try {
-      const payload = {
-        student_name: form.student_name,
-        student_id: form.student_id || undefined,
-        amount: parseFloat(form.amount),
-        paid_amount: parseFloat(form.paid_amount) || 0,
-        due_date: form.due_date,
-        install_date: form.install_date || undefined,
-        transaction_type: form.transaction_type,
-        description: form.description,
-      }
-
-      if (editing) {
-        await invoicesApi.update(editing.id, payload)
-      } else {
-        await invoicesApi.create(payload)
-      }
-      setModalOpen(false)
-      setEditing(null)
-      load()
-    } catch (err: any) { alert(err.message) }
-    finally { setSaving(false) }
+const handleSave = async () => {
+  if (!form.student_name || !form.amount || !form.due_date) {
+    alert("Fill required fields"); return
   }
+  setSaving(true)
+  try {
+    const payload = {
+      student_name: form.student_name,
+      student_id: form.student_id || undefined,
+      amount: parseFloat(form.amount),
+      paid_amount: parseFloat(form.paid_amount) || 0,
+      due_date: form.due_date,
+      install_date: form.install_date || undefined,
+      transaction_type: form.transaction_type,
+      description: form.description,
+    }
+
+    if (editing) {
+      await invoicesApi.update(editing.id, payload)
+    } else {
+      await invoicesApi.create(payload)
+    }
+
+    // ── Sync paid_fee back to the Students table ──────────
+    if (form.student_id) {
+      const studentId = Number(form.student_id)
+      const paidOnInvoice = parseFloat(form.paid_amount) || 0
+
+      try {
+        // Fetch fresh student data to get current paid_fee
+        const studentRes: any = await studentsApi.getById(studentId)
+        const student = studentRes?.data
+
+        if (student) {
+          let newPaidFee: number
+
+          if (editing) {
+            // Replace the old invoice's paid_amount with the new one
+            const oldPaid = Number(editing.paid_amount) || 0
+            newPaidFee = Math.max(0, Number(student.paid_fee) - oldPaid + paidOnInvoice)
+          } else {
+            // Add the new invoice's paid_amount on top
+            newPaidFee = Number(student.paid_fee) + paidOnInvoice
+          }
+
+          // Cap at total fee
+          const totalFee = Number(student.fee)
+          if (totalFee > 0) newPaidFee = Math.min(newPaidFee, totalFee)
+
+          await studentsApi.update(studentId, {
+            ...student,
+            paid_fee: newPaidFee,
+          })
+        }
+      } catch (syncErr) {
+        console.warn("Could not sync paid_fee to student record:", syncErr)
+        // Non-blocking — invoice was already saved successfully
+      }
+    }
+    // ─────────────────────────────────────────────────────
+
+    setModalOpen(false)
+    setEditing(null)
+    load()
+  } catch (err: any) { alert(err.message) }
+  finally { setSaving(false) }
+}
 
   const openEdit = (inv: Invoice) => {
     setEditing(inv)
