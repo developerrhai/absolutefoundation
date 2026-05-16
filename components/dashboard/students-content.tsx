@@ -30,10 +30,7 @@ const feeStatus = (s: Student) => {
 }
 
 // Normalise standard values like "5", "5th", "5th Standard" → "5" for loose comparison
-const extractNum = (v: string | number) =>
-  String(v || "")
-    .replace(/[^0-9]/g, "")
-    .trim()
+const extractNum = (v: string) => v.replace(/[^0-9]/g, "")
 
 export function StudentsContent() {
   const [students,       setStudents]       = useState<Student[]>([])
@@ -88,12 +85,12 @@ export function StudentsContent() {
   useEffect(() => { load() }, [load])
 
   // ── Client-side standard filter (handles "5", "5th", "5th Standard", etc.) ──
- const displayedStudents =
-  filterStandard === "all"
-    ? students
-    : students.filter((s) => {
-        return extractNum(s.standard) === extractNum(filterStandard)
-      })
+  const displayedStudents =
+    filterStandard === "all"
+      ? students
+      : students.filter(
+          s => extractNum(String(s.standard || "")) === extractNum(filterStandard)
+        )
 
   // ── Delete ──────────────────────────────────────────────
   const handleDelete = async (id: number) => {
@@ -333,34 +330,15 @@ export function StudentsContent() {
               <Input placeholder="Search by name or phone…" value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
             </div>
-            <Select
-  value={filterStandard}
-  onValueChange={(value) => {
-    console.log("Selected:", value)
-    setFilterStandard(value)
-  }}
->
-  <SelectTrigger className="w-full">
-    <SelectValue placeholder="All Standards" />
-  </SelectTrigger>
-
-  <SelectContent>
-    <SelectItem value="all">All Standards</SelectItem>
-
-    <SelectItem value="1">1st Standard</SelectItem>
-    <SelectItem value="2">2nd Standard</SelectItem>
-    <SelectItem value="3">3rd Standard</SelectItem>
-    <SelectItem value="4">4th Standard</SelectItem>
-    <SelectItem value="5">5th Standard</SelectItem>
-    <SelectItem value="6">6th Standard</SelectItem>
-    <SelectItem value="7">7th Standard</SelectItem>
-    <SelectItem value="8">8th Standard</SelectItem>
-    <SelectItem value="9">9th Standard</SelectItem>
-    <SelectItem value="10">10th Standard</SelectItem>
-    <SelectItem value="11">11th Standard</SelectItem>
-    <SelectItem value="12">12th Standard</SelectItem>
-  </SelectContent>
-</Select>
+            <Select value={filterStandard} onValueChange={setFilterStandard}>
+              <SelectTrigger><SelectValue placeholder="All Standards" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Standards</SelectItem>
+                {Array.from({ length: 12 }, (_, i) => (
+                  <SelectItem key={i+1} value={String(i+1)}>{i+1}th Standard</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex justify-end mb-4">
