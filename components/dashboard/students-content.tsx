@@ -334,27 +334,33 @@ export function StudentsContent() {
                 onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
             </div>
             <Select
-            value={filterStandard}
-            onValueChange={(value) => setFilterStandard(value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="All Standards" />
-            </SelectTrigger>
+  value={filterStandard}
+  onValueChange={(value) => {
+    console.log("Selected:", value)
+    setFilterStandard(value)
+  }}
+>
+  <SelectTrigger className="w-full">
+    <SelectValue placeholder="All Standards" />
+  </SelectTrigger>
 
-            <SelectContent>
-              <SelectItem value="all">All Standards</SelectItem>
+  <SelectContent>
+    <SelectItem value="all">All Standards</SelectItem>
 
-              {Array.from({ length: 12 }, (_, i) => {
-                const std = `${i + 1}`
-
-                return (
-                  <SelectItem key={std} value={std}>
-                    {std}th Standard
-                  </SelectItem>
-                )
-              })}
-            </SelectContent>
-          </Select>
+    <SelectItem value="1">1st Standard</SelectItem>
+    <SelectItem value="2">2nd Standard</SelectItem>
+    <SelectItem value="3">3rd Standard</SelectItem>
+    <SelectItem value="4">4th Standard</SelectItem>
+    <SelectItem value="5">5th Standard</SelectItem>
+    <SelectItem value="6">6th Standard</SelectItem>
+    <SelectItem value="7">7th Standard</SelectItem>
+    <SelectItem value="8">8th Standard</SelectItem>
+    <SelectItem value="9">9th Standard</SelectItem>
+    <SelectItem value="10">10th Standard</SelectItem>
+    <SelectItem value="11">11th Standard</SelectItem>
+    <SelectItem value="12">12th Standard</SelectItem>
+  </SelectContent>
+</Select>
           </div>
 
           <div className="flex justify-end mb-4">
