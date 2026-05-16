@@ -15,6 +15,15 @@ interface SubjectMarksChartProps {
 }
 
 export function SubjectMarksChart({ subjects, average }: SubjectMarksChartProps) {
+  if (!subjects.length) {
+    return (
+      <div className="rounded-xl bg-white p-5 shadow-sm border border-slate-100">
+        <h3 className="mb-4 text-lg font-semibold text-slate-800">Subject-wise Marks</h3>
+        <p className="text-sm text-slate-500 py-8 text-center">No marks recorded yet.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-xl bg-white p-5 shadow-sm border border-slate-100">
       <h3 className="mb-4 text-lg font-semibold text-slate-800">
