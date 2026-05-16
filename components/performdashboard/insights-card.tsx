@@ -2,6 +2,7 @@
 
 import { CheckCircle2, Info, Lightbulb, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { InsightItem } from "@/lib/performance-utils";
 
 interface InsightCardProps {
   type: "success" | "info" | "warning" | "tip";
@@ -65,33 +66,25 @@ export function InsightCard({ type, title, description }: InsightCardProps) {
   );
 }
 
-export function PerformanceInsights() {
+type PerformanceInsightsProps = {
+  insights: InsightItem[];
+};
+
+export function PerformanceInsights({ insights }: PerformanceInsightsProps) {
   return (
     <div className="rounded-xl bg-white p-5 shadow-sm border border-slate-100 h-full">
       <h3 className="mb-4 text-lg font-semibold text-slate-800">
         Performance Insights
       </h3>
       <div className="flex flex-col gap-3">
-        <InsightCard
-          type="success"
-          title="Great Job!"
-          description="You have improved 5.6% compared to the last term."
-        />
-        <InsightCard
-          type="info"
-          title="Strong Subjects"
-          description="Mathematics and Hindi are your strong areas."
-        />
-        <InsightCard
-          type="warning"
-          title="Focus Area"
-          description="Try to improve in Social Studies to boost your overall performance."
-        />
-        <InsightCard
-          type="tip"
-          title="Keep it Up!"
-          description="Consistent performance and good attendance. Keep it up!"
-        />
+        {insights.map((item, i) => (
+          <InsightCard
+            key={`${item.title}-${i}`}
+            type={item.type}
+            title={item.title}
+            description={item.description}
+          />
+        ))}
       </div>
     </div>
   );

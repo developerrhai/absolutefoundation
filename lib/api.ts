@@ -246,8 +246,19 @@ export const dashboardApi = {
 export const teacherStudentAssessmentsApi = {
   getLatestAll: () => get("/teacher-student-assessments"),
   getByStudent: (studentId: string | number) => get(`/teacher-student-assessments/${studentId}`),
-   createByStudent: (studentId: string | number, data: Record<string, unknown>) =>
+  createByStudent: (studentId: string | number, data: Record<string, unknown>) =>
     post(`/teacher-student-assessments/${studentId}`, data),
+};
+
+export const studentAttendanceApi = {
+  getByStudent: (studentId: string | number) => get(`/student-attendance/${studentId}`),
+  createByStudent: (studentId: string | number, data: Record<string, unknown>) =>
+    post(`/student-attendance/${studentId}`, data),
+};
+
+export const studentRankHistoryApi = {
+  getByStudent: (studentId: string | number) => get(`/student-rank-history/${studentId}`),
+  snapshotAll: () => post("/student-rank-history/snapshot", {}),
 };
 
 

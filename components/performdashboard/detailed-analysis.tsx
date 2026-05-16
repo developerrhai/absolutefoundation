@@ -19,6 +19,11 @@ export function DetailedAnalysis({ subjects }: DetailedAnalysisProps) {
       <h3 className="mb-4 text-lg font-semibold text-slate-800">
         Subject-wise Detailed Analysis
       </h3>
+      {subjects.length === 0 ? (
+        <p className="text-sm text-slate-500 py-6 text-center">
+          No subject marks yet. Add marks to see detailed analysis.
+        </p>
+      ) : (
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
@@ -88,6 +93,7 @@ export function DetailedAnalysis({ subjects }: DetailedAnalysisProps) {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }

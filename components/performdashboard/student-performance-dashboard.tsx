@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, GraduationCap, Download, Loader2, MessageCircle, Send } from "lucide-react";
+import { ArrowLeft, GraduationCap, Download, Loader2, MessageCircle, Plus, ClipboardList, CalendarCheck } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "../ui/button";
 import { StudentProfile } from "../performdashboard/student-profile";
@@ -10,8 +10,26 @@ import { PerformanceChart } from "../performdashboard/performance-chart";
 import { SubjectMarksChart } from "../performdashboard/subject-marks-chart";
 import { PerformanceInsights } from "../performdashboard/insights-card";
 import { DetailedAnalysis } from "../performdashboard/detailed-analysis";
-import { studentData } from "../../lib/student-data";
-import { studentsUniversalApi, teacherStudentAssessmentsApi } from "../../lib/api";
+import { AddMarksDialog } from "../performdashboard/add-marks-dialog";
+import { BulkAddMarksDialog } from "../performdashboard/bulk-add-marks-dialog";
+import { AssessmentHistory } from "../performdashboard/assessment-history";
+import { AddAttendanceDialog } from "../performdashboard/add-attendance-dialog";
+import { RankHistory, type RankHistoryRow } from "../performdashboard/rank-history";
+import {
+  studentsUniversalApi,
+  teacherStudentAssessmentsApi,
+  studentAttendanceApi,
+  studentRankHistoryApi,
+} from "../../lib/api";
+import {
+  type AssessmentRow,
+  type DashboardData,
+  buildDashboardData,
+  buildInsights,
+  parseAttendanceExtras,
+  parseRankExtras,
+  toNum,
+} from "../../lib/performance-utils";
 
 type Student = {
   id: number;
@@ -22,34 +40,8 @@ type Student = {
   location: string;
 };
 
-type AssessmentRow = {
-  subject: string;
-  marks: number;
-  examination: string;
-  exam_date: string;
-};
-
-type DashboardData = {
-  name: string;
-  phone: string;
-  class: string;
-  board: string;
-  location: string;
-  stats: {
-    overallPercentage: number;
-    percentageChange: number;
-    averageMarks: number;
-    totalMarks: number;
-    averageChange: number;
-    classRank: number;
-    totalStudents: number;
-    rankChange: number;
-    attendance: number;
-    attendanceChange: number;
-  };
-  subjects: Array<{ name: string; marks: number; total: number; color: string }>;
-  performanceData: Array<{ subject: string; thisTerm: number; lastTerm: number }>;
-};
+const emptyDashboard = (student: Student): DashboardData =>
+  buildDashboardData(student, [], { totalStudents: 1, classRank: 0 });
 
 // ─── Bulk send result tracking ────────────────────────────────────────────────
 type BulkResult = {
@@ -59,16 +51,6 @@ type BulkResult = {
   reason?: string;
 };
 
-const SUBJECT_COLORS = [
-  "#22c55e","#3b82f6","#eab308","#8b5cf6",
-  "#f97316","#06b6d4","#ef4444","#84cc16",
-];
-
-function toNum(value: unknown) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : 0;
-}
-
 function getPerformanceLabel(pct: number): string {
   if (pct >= 90) return "Excellent 🌟";
   if (pct >= 75) return "Very Good 👍";
@@ -77,71 +59,15 @@ function getPerformanceLabel(pct: number): string {
   return "Needs Improvement 📚";
 }
 
-function buildDashboardData(
-  student: Student,
-  rows: AssessmentRow[],
-  totalStudents: number
-): DashboardData {
-  const subjectMap = new Map<string, { latest?: AssessmentRow; previous?: AssessmentRow }>();
-
-  for (const row of rows) {
-    if (!row?.subject) continue;
-    const key = row.subject.trim();
-    if (!key) continue;
-    if (!subjectMap.has(key)) {
-      subjectMap.set(key, { latest: row });
-    } else {
-      const current = subjectMap.get(key)!;
-      if (!current.previous) current.previous = row;
-    }
-  }
-
-  const subjects = Array.from(subjectMap.entries()).map(([name, value], index) => ({
-    name,
-    marks: toNum(value.latest?.marks),
-    total: 100,
-    color: SUBJECT_COLORS[index % SUBJECT_COLORS.length],
+function mapAssessmentRows(data: unknown[]): AssessmentRow[] {
+  return (data || []).map((r: any) => ({
+    id: r.id,
+    subject: r.subject || "",
+    marks: toNum(r.marks),
+    total_marks: r.total_marks != null ? toNum(r.total_marks) : undefined,
+    examination: r.examination || "",
+    exam_date: r.exam_date || "",
   }));
-
-  const thisTermTotal = subjects.reduce((sum, s) => sum + s.marks, 0);
-  const thisTermCount = subjects.length;
-  const averageMarks = thisTermCount > 0 ? thisTermTotal / thisTermCount : 0;
-
-  const previousTermMarks = Array.from(subjectMap.values()).map((v) => toNum(v.previous?.marks));
-  const prevCount = previousTermMarks.filter((m) => m > 0).length;
-  const prevAverage = prevCount > 0
-    ? previousTermMarks.reduce((sum, mark) => sum + mark, 0) / prevCount : 0;
-
-  const overallPercentage = Number(averageMarks.toFixed(1));
-  const averageChange = Number((averageMarks - prevAverage).toFixed(1));
-
-  const performanceData = Array.from(subjectMap.entries()).map(([subject, value]) => ({
-    subject,
-    thisTerm: toNum(value.latest?.marks),
-    lastTerm: toNum(value.previous?.marks),
-  }));
-
-  return {
-    name: student.name || studentData.name,
-    phone: student.phone || studentData.phone,
-    class: student.standard || studentData.class,
-    board: student.board || studentData.board,
-    location: student.location || studentData.location,
-    stats: {
-      overallPercentage,
-      percentageChange: averageChange,
-      averageMarks: Number(averageMarks.toFixed(1)),
-      totalMarks: 100,
-      averageChange,
-      classRank: 1,
-      totalStudents: Math.max(totalStudents, 1),
-      rankChange: 0,
-      attendance: 0,
-      attendanceChange: 0,
-    },
-    subjects: subjects.length > 0 ? subjects : studentData.subjects,
-    performanceData: performanceData.length > 0 ? performanceData : studentData.performanceData,
-  };
 }
 
 // ─── RhaiTech WhatsApp API call ───────────────────────────────────────────────
@@ -401,11 +327,16 @@ export default function StudentPerformanceDashboard() {
   const searchParams = useSearchParams();
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
-  const [dashboardData, setDashboardData] = useState<DashboardData>(studentData);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [historyRows, setHistoryRows] = useState<AssessmentRow[]>([]);
+  const [rankHistoryRows, setRankHistoryRows] = useState<RankHistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [studentLoading, setStudentLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [addMarksOpen, setAddMarksOpen] = useState(false);
+  const [bulkMarksOpen, setBulkMarksOpen] = useState(false);
+  const [addAttendanceOpen, setAddAttendanceOpen] = useState(false);
 
   // ── Bulk send state ────────────────────────────────────────────────────────
   const [bulkSending, setBulkSending] = useState(false);
@@ -435,7 +366,10 @@ export default function StudentPerformanceDashboard() {
         if (allStudents.length > 0) {
           const queryMatch = allStudents.find((s) => s.id === preferredStudentId);
           setSelectedStudentId(queryMatch ? queryMatch.id : allStudents[0].id);
-        } else { setDashboardData(studentData); }
+        } else {
+          setDashboardData(null);
+        }
+
       } catch (e: any) { setError(e?.message || "Failed to load students"); }
       finally { setLoading(false); }
     };
@@ -454,26 +388,99 @@ export default function StudentPerformanceDashboard() {
   };
 
   const handleDownloadReport = async () => {
+    if (!displayData) return;
     setDownloading(true);
-    try { await downloadReport(dashboardData); }
+    try { await downloadReport(displayData); }
     finally { setDownloading(false); }
+  };
+
+  const refreshStudentPerformance = async () => {
+    if (!selectedStudent) return;
+    setStudentLoading(true);
+    setError(null);
+    try {
+      const [assessmentRes, attendanceRes, rankRes]: any[] = await Promise.all([
+        teacherStudentAssessmentsApi.getByStudent(selectedStudent.id),
+        studentAttendanceApi.getByStudent(selectedStudent.id),
+        studentRankHistoryApi.getByStudent(selectedStudent.id),
+      ]);
+
+      const rows = mapAssessmentRows(assessmentRes?.data || []);
+      setHistoryRows(rows);
+      setAssessmentCache((prev) => new Map(prev).set(selectedStudent.id, rows));
+
+      const attendanceList = attendanceRes?.data || [];
+      const rankList = rankRes?.data || [];
+      setRankHistoryRows(
+        rankList.map((r: any) => ({
+          id: r.id,
+          class_rank: Number(r.class_rank) || 0,
+          total_students: Number(r.total_students) || 0,
+          average_percentage: Number(r.average_percentage) || 0,
+          snapshot_date: r.snapshot_date || "",
+        }))
+      );
+
+      const attendanceExtras = parseAttendanceExtras(attendanceList);
+      const rankExtras = parseRankExtras(rankList, students.length);
+
+      const built = buildDashboardData(selectedStudent, rows, {
+        totalStudents: rankExtras.totalStudents ?? students.length,
+        ...rankExtras,
+        ...attendanceExtras,
+      });
+      setDashboardData(built);
+
+      if (!rankList.length && rows.length > 0) {
+        try {
+          await studentRankHistoryApi.snapshotAll();
+          const refreshed: any = await studentRankHistoryApi.getByStudent(selectedStudent.id);
+          const refreshedRanks = refreshed?.data || [];
+          setRankHistoryRows(
+            refreshedRanks.map((r: any) => ({
+              id: r.id,
+              class_rank: Number(r.class_rank) || 0,
+              total_students: Number(r.total_students) || 0,
+              average_percentage: Number(r.average_percentage) || 0,
+              snapshot_date: r.snapshot_date || "",
+            }))
+          );
+          const updatedRank = parseRankExtras(refreshedRanks, students.length);
+          setDashboardData(
+            buildDashboardData(selectedStudent, rows, {
+              totalStudents: updatedRank.totalStudents ?? students.length,
+              ...updatedRank,
+              ...attendanceExtras,
+            })
+          );
+        } catch {
+          /* snapshot optional */
+        }
+      }
+    } catch (e: any) {
+      setError(e?.message || "Failed to load performance data");
+    } finally {
+      setStudentLoading(false);
+    }
   };
 
   useEffect(() => {
     if (!selectedStudent) return;
-    const loadStudentPerformance = async () => {
-      setStudentLoading(true); setError(null);
-      try {
-        const assessmentRes: any = await teacherStudentAssessmentsApi.getByStudent(selectedStudent.id);
-        const rows: AssessmentRow[] = assessmentRes?.data || [];
-        // Cache raw rows for bulk send
-        setAssessmentCache((prev) => new Map(prev).set(selectedStudent.id, rows));
-        setDashboardData(buildDashboardData(selectedStudent, rows, students.length));
-      } catch (e: any) { setError(e?.message || "Failed to load performance data"); }
-      finally { setStudentLoading(false); }
-    };
-    loadStudentPerformance();
-  }, [selectedStudent, students.length]);
+    refreshStudentPerformance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStudent?.id, students.length]);
+
+  const displayData =
+    dashboardData ?? (selectedStudent ? emptyDashboard(selectedStudent) : null);
+
+  const insights = useMemo(() => {
+    if (!displayData) {
+      return buildInsights(
+        emptyDashboard({ id: 0, name: "", phone: "", standard: "", board: "", location: "" })
+      );
+    }
+    return buildInsights(displayData);
+  }, [displayData]);
 
   // ── Bulk Send Handler ──────────────────────────────────────────────────────
   const handleBulkSend = async () => {
@@ -507,7 +514,7 @@ export default function StudentPerformanceDashboard() {
         let rows: AssessmentRow[] = assessmentCache.get(student.id) || [];
         if (!rows.length) {
           const res: any = await teacherStudentAssessmentsApi.getByStudent(student.id);
-          rows = res?.data || [];
+          rows = mapAssessmentRows(res?.data || []);
           setAssessmentCache((prev) => new Map(prev).set(student.id, rows));
         }
 
@@ -611,10 +618,38 @@ export default function StudentPerformanceDashboard() {
               )}
             </Button>
 
+            <Button
+              onClick={() => setAddMarksOpen(true)}
+              disabled={loading || !selectedStudentId}
+              className="bg-violet-600 hover:bg-violet-700 text-white gap-2 shadow-md disabled:opacity-60"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Add Marks</span>
+            </Button>
+
+            <Button
+              onClick={() => setAddAttendanceOpen(true)}
+              disabled={loading || !selectedStudentId}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shadow-md disabled:opacity-60"
+            >
+              <CalendarCheck className="h-4 w-4" />
+              <span className="hidden sm:inline">Add Attendance</span>
+            </Button>
+
+            <Button
+              onClick={() => setBulkMarksOpen(true)}
+              disabled={loading || students.length === 0}
+              variant="outline"
+              className="border-amber-400 text-amber-700 hover:bg-amber-50 gap-2"
+            >
+              <ClipboardList className="h-4 w-4" />
+              <span className="hidden sm:inline">Bulk Marks</span>
+            </Button>
+
             {/* 📥 Download Button */}
             <Button
               onClick={handleDownloadReport}
-              disabled={downloading || loading || studentLoading}
+              disabled={downloading || loading || studentLoading || !displayData}
               className="bg-teal-500 hover:bg-teal-600 text-white gap-2 shadow-md disabled:opacity-60"
             >
               {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
@@ -713,36 +748,65 @@ export default function StudentPerformanceDashboard() {
 
           <div className="mb-6 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <StudentProfile
-              name={dashboardData.name}
-              phone={dashboardData.phone}
-              className={dashboardData.class}
-              board={dashboardData.board}
-              location={dashboardData.location}
+              name={displayData!.name}
+              phone={displayData!.phone}
+              className={displayData!.class}
+              board={displayData!.board}
+              location={displayData!.location}
             />
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <StatsCard title="Overall Percentage" value={`${dashboardData.stats.overallPercentage}%`}
-                change={dashboardData.stats.percentageChange} changeLabel="vs Last Term" icon="percentage" />
-              <StatsCard title="Average Marks" value={dashboardData.stats.averageMarks}
-                subValue={`/ ${dashboardData.stats.totalMarks}`} change={dashboardData.stats.averageChange}
+              <StatsCard title="Overall Percentage" value={`${displayData!.stats.overallPercentage}%`}
+                change={displayData!.stats.percentageChange} changeLabel="vs Last Term" icon="percentage" />
+              <StatsCard title="Average Marks" value={displayData!.stats.averageMarks}
+                subValue={`/ ${displayData!.stats.totalMarks}`} change={displayData!.stats.averageChange}
                 changeLabel="vs Last Term" icon="star" />
-              <StatsCard title="Class Rank" value={dashboardData.stats.classRank}
-                subValue={`/ ${dashboardData.stats.totalStudents}`} change={dashboardData.stats.rankChange}
+              <StatsCard title="Class Rank" value={displayData!.stats.classRank}
+                subValue={`/ ${displayData!.stats.totalStudents}`} change={displayData!.stats.rankChange}
                 changeLabel="vs Last Term" icon="rank" />
-              <StatsCard title="Attendance" value={`${dashboardData.stats.attendance}%`}
-                change={dashboardData.stats.attendanceChange} changeLabel="vs Last Term" icon="attendance" />
+              <StatsCard title="Attendance" value={`${displayData!.stats.attendance}%`}
+                change={displayData!.stats.attendanceChange} changeLabel="vs Last Term" icon="attendance" />
             </div>
           </div>
 
           <div className="mb-6 grid gap-6 lg:grid-cols-3">
-            <div className="lg:col-span-1"><PerformanceChart data={dashboardData.performanceData} /></div>
+            <div className="lg:col-span-1"><PerformanceChart data={displayData!.performanceData} /></div>
             <div className="lg:col-span-1">
-              <SubjectMarksChart subjects={dashboardData.subjects} average={dashboardData.stats.overallPercentage} />
+              <SubjectMarksChart subjects={displayData!.subjects} average={displayData!.stats.overallPercentage} />
             </div>
-            <div className="lg:col-span-1"><PerformanceInsights /></div>
+            <div className="lg:col-span-1"><PerformanceInsights insights={insights} /></div>
           </div>
 
-          <DetailedAnalysis subjects={dashboardData.subjects} />
+          <DetailedAnalysis subjects={displayData!.subjects} />
+          <div className="mt-6">
+            <AssessmentHistory rows={historyRows} loading={studentLoading} />
+          </div>
+          <div className="mt-6">
+            <RankHistory rows={rankHistoryRows} loading={studentLoading} />
+          </div>
         </div>
+
+        <AddMarksDialog
+          open={addMarksOpen}
+          onOpenChange={setAddMarksOpen}
+          studentId={selectedStudentId}
+          studentName={selectedStudent?.name}
+          onSaved={refreshStudentPerformance}
+        />
+
+        <BulkAddMarksDialog
+          open={bulkMarksOpen}
+          onOpenChange={setBulkMarksOpen}
+          students={students.map((s) => ({ id: s.id, name: s.name }))}
+          onSaved={refreshStudentPerformance}
+        />
+
+        <AddAttendanceDialog
+          open={addAttendanceOpen}
+          onOpenChange={setAddAttendanceOpen}
+          studentId={selectedStudentId}
+          studentName={selectedStudent?.name}
+          onSaved={refreshStudentPerformance}
+        />
       </div>
     </div>
   );
