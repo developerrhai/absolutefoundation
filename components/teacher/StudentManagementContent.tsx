@@ -256,9 +256,8 @@ export function StudentManagementContent() {
     subject: "",
     examination: "",
     exam_date: new Date().toISOString().split("T")[0],
-    total_marks: "", // single shared total marks applied to every student
+    total_marks: "",
   });
-  // Simple per-student marks string (total_marks comes from bulkCommon)
   const [bulkMarks, setBulkMarks] = useState<Record<number, string>>({});
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
@@ -278,6 +277,7 @@ export function StudentManagementContent() {
   }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Bulk import ref ───────────────────────────────────────────────────────
   const bulkImportRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -347,6 +347,65 @@ export function StudentManagementContent() {
   // ── Export ────────────────────────────────────────────────────────────────
   const exportCSV = () => downloadBlob(studentsToCSV(filteredStudents), "students.csv", "text/csv;charset=utf-8;");
   const exportJSON = () => downloadBlob(JSON.stringify(filteredStudents, null, 2), "students.json", "application/json");
+
+  // ── Bulk Export (Excel template) ──────────────────────────────────────────
+  const exportBulkTemplate = async () => {
+    const XLSX = await import("xlsx");
+    const rows = filteredStudents.map((s) => ({
+      student_id: s.id,
+      name: s.name,
+      standard: s.standard,
+      board: s.board,
+      subject: bulkCommon.subject || "",
+      examination: bulkCommon.examination || "",
+      exam_date: bulkCommon.exam_date || new Date().toISOString().split("T")[0],
+      marks: bulkMarks[s.id] ?? "",
+      total_marks: bulkCommon.total_marks || "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "BulkMarks");
+    XLSX.writeFile(wb, "bulk_marks_template.xlsx");
+  };
+
+  // ── Bulk Import (Excel) ───────────────────────────────────────────────────
+  const handleBulkImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const XLSX = await import("xlsx");
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
+      const newMarks: Record<number, string> = { ...bulkMarks };
+      for (const row of rows) {
+        const id = Number(row.student_id);
+        if (!Number.isNaN(id) && row.marks !== "") {
+          newMarks[id] = String(row.marks);
+        }
+      }
+      setBulkMarks(newMarks);
+      // Populate common fields from first row if present
+      const first = rows[0];
+      if (first) {
+        setBulkCommon((p) => ({
+          subject: first.subject || p.subject,
+          examination: first.examination || p.examination,
+          exam_date: first.exam_date
+            ? String(first.exam_date).split("T")[0]
+            : p.exam_date,
+          total_marks:
+            first.total_marks !== undefined && first.total_marks !== ""
+              ? String(first.total_marks)
+              : p.total_marks,
+        }));
+      }
+    } catch (err: any) {
+      alert("Failed to read file: " + (err.message || "unknown error"));
+    }
+    if (bulkImportRef.current) bulkImportRef.current.value = "";
+  };
 
   // ── Import ────────────────────────────────────────────────────────────────
   const handleImportFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -634,64 +693,6 @@ export function StudentManagementContent() {
       setActionLoadingId(null);
     }
   };
-
-
-  const handleBulkImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-  try {
-    const XLSX = await import("xlsx");
-    const buffer = await file.arrayBuffer();
-    const wb = XLSX.read(buffer, { type: "array" });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
-    const newMarks: Record<number, string> = { ...bulkMarks };
-    for (const row of rows) {
-      const id = Number(row.student_id);
-      if (!Number.isNaN(id) && row.marks !== "") {
-        newMarks[id] = String(row.marks);
-      }
-    }
-    setBulkMarks(newMarks);
-    // Also populate common fields if present in file
-    const first = rows[0];
-    if (first) {
-      setBulkCommon((p) => ({
-        subject: first.subject || p.subject,
-        examination: first.examination || p.examination,
-        exam_date: first.exam_date ? String(first.exam_date).split("T")[0] : p.exam_date,
-        total_marks: first.total_marks !== undefined && first.total_marks !== "" ? String(first.total_marks) : p.total_marks,
-      }));
-    }
-  } catch (err: any) {
-    alert("Failed to read file: " + (err.message || "unknown error"));
-  }
-  if (bulkImportRef.current) bulkImportRef.current.value = "";
-};
-
-
-const exportBulkTemplate = async () => {
-  const XLSX = await import("xlsx");
-  const rows = filteredStudents.map((s) => ({
-    student_id: s.id,
-    name: s.name,
-    standard: s.standard,
-    board: s.board,
-    subject: bulkCommon.subject || "",
-    examination: bulkCommon.examination || "",
-    exam_date: bulkCommon.exam_date || new Date().toISOString().split("T")[0],
-    marks: bulkMarks[s.id] ?? "",
-    total_marks: bulkCommon.total_marks || "",
-  }));
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "BulkMarks");
-  XLSX.writeFile(wb, "bulk_marks_template.xlsx");
-};
-
-
-
-
 
   const openPerformanceAnalysis = (student: Student) => {
     router.push(`/teacherdashboard/performanceanalysis?studentId=${student.id}`);
@@ -1050,40 +1051,44 @@ const exportBulkTemplate = async () => {
       </Dialog>
 
       {/* ── Bulk Marks Dialog ────────────────────────────────────────────── */}
+      <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
           <DialogHeader>
-        <div className="flex items-center justify-between gap-2">
-          <DialogTitle className="flex items-center gap-2">
-            <ClipboardList className="h-5 w-5 text-amber-500" />Bulk Add Marks
-          </DialogTitle>
-          <div className="flex items-center gap-2 pr-6">
-            <input
-              ref={bulkImportRef}
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={handleBulkImportFile}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              className="h-8 rounded-full gap-1.5 text-xs border-amber-300 text-amber-700 hover:bg-amber-50"
-              onClick={() => bulkImportRef.current?.click()}
-              title="Import marks from Excel"
-            >
-              <Upload className="h-3.5 w-3.5" />Import
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-8 rounded-full gap-1.5 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-              onClick={exportBulkTemplate}
-              title="Export student list as Excel template"
-            >
-              <Download className="h-3.5 w-3.5" />Export
-            </Button>
-          </div>
-        </div>
-      </DialogHeader>
+            {/* Title row with Import / Export buttons */}
+            <div className="flex items-center justify-between gap-2">
+              <DialogTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5 text-amber-500" />Bulk Add Marks
+              </DialogTitle>
+              <div className="flex items-center gap-2 pr-6">
+                {/* Hidden file input for bulk import */}
+                <input
+                  ref={bulkImportRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                  onChange={handleBulkImportFile}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-8 rounded-full gap-1.5 text-xs border-amber-300 text-amber-700 hover:bg-amber-50"
+                  onClick={() => bulkImportRef.current?.click()}
+                  title="Import marks from Excel (.xlsx)"
+                >
+                  <Upload className="h-3.5 w-3.5" />Import
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-8 rounded-full gap-1.5 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                  onClick={exportBulkTemplate}
+                  title="Export student list as Excel template"
+                >
+                  <Download className="h-3.5 w-3.5" />Export
+                </Button>
+              </div>
+            </div>
+          </DialogHeader>
 
           <div className="space-y-4 flex-1 overflow-y-auto pr-1">
 
@@ -1156,7 +1161,6 @@ const exportBulkTemplate = async () => {
                     <TableHead className="text-white">Std</TableHead>
                     <TableHead className="text-white">Board</TableHead>
                     <TableHead className="text-white w-36">Marks Obtained</TableHead>
-                    {/* % column only shown when a shared total is set */}
                     {sharedTotalNum !== null && (
                       <TableHead className="text-white w-20">%</TableHead>
                     )}
