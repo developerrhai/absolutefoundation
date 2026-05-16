@@ -1195,6 +1195,7 @@ const handleWhatsAppShare = async (inv: Invoice) => {
                   <SelectContent>
                     <SelectItem value="Cash">💵 Cash</SelectItem>
                     <SelectItem value="Online">🌐 Online</SelectItem>
+                    <SelectItem value="Cheque">📝 Cheque</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
