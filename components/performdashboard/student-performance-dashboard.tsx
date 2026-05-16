@@ -140,7 +140,7 @@
       console.log("📤 Sending WhatsApp to:", cleanedPhone);
 
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/whatsapp/send-report`,
+        `${process.env.NEXT_PUBLIC_API_URL}/whatsapp/send-report`,
         {
           method: "POST",
           headers: {
