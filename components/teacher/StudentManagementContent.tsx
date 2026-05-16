@@ -67,8 +67,16 @@ type AssessmentRow = {
   student_id: number;
   subject: string;
   marks: number;
+  total_marks?: number;
   examination: string;
   exam_date: string;
+};
+
+// ─── Bulk marks entry per student ────────────────────────────────────────────
+
+type BulkEntry = {
+  marks: string;
+  total_marks: string;
 };
 
 // ─── CSV helpers ─────────────────────────────────────────────────────────────
@@ -197,7 +205,6 @@ function Pagination({
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, total);
 
-  // Build page number windows: always show first, last, current ±1
   const pageNumbers = useMemo(() => {
     const pages = new Set<number>();
     pages.add(1);
@@ -206,7 +213,6 @@ function Pagination({
       pages.add(p);
     }
     const sorted = Array.from(pages).sort((a, b) => a - b);
-    // Insert ellipsis markers (-1) where gaps exist
     const result: number[] = [];
     for (let i = 0; i < sorted.length; i++) {
       if (i > 0 && sorted[i] - sorted[i - 1] > 1) result.push(-1);
@@ -217,7 +223,6 @@ function Pagination({
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-1 pt-4 pb-1">
-      {/* Left: count + rows-per-page */}
       <div className="flex items-center gap-3 text-sm text-muted-foreground">
         <span>
           {total === 0 ? "No results" : `${from}–${to} of ${total}`}
@@ -240,72 +245,26 @@ function Pagination({
         </div>
       </div>
 
-      {/* Right: page buttons */}
       <div className="flex items-center gap-1">
-        {/* First */}
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-8 w-8 rounded-full"
-          disabled={page === 1}
-          onClick={() => onPageChange(1)}
-          title="First page"
-        >
+        <Button variant="outline" size="icon" className="h-8 w-8 rounded-full" disabled={page === 1} onClick={() => onPageChange(1)} title="First page">
           <ChevronsLeft className="h-3.5 w-3.5" />
         </Button>
-
-        {/* Prev */}
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-8 w-8 rounded-full"
-          disabled={page === 1}
-          onClick={() => onPageChange(page - 1)}
-          title="Previous page"
-        >
+        <Button variant="outline" size="icon" className="h-8 w-8 rounded-full" disabled={page === 1} onClick={() => onPageChange(page - 1)} title="Previous page">
           <ChevronLeft className="h-3.5 w-3.5" />
         </Button>
-
-        {/* Page numbers */}
         {pageNumbers.map((p, i) =>
           p === -1 ? (
-            <span key={`ellipsis-${i}`} className="px-1 text-sm text-muted-foreground select-none">
-              …
-            </span>
+            <span key={`ellipsis-${i}`} className="px-1 text-sm text-muted-foreground select-none">…</span>
           ) : (
-            <Button
-              key={p}
-              variant={p === page ? "default" : "outline"}
-              size="icon"
-              className="h-8 w-8 rounded-full text-xs"
-              onClick={() => onPageChange(p)}
-            >
+            <Button key={p} variant={p === page ? "default" : "outline"} size="icon" className="h-8 w-8 rounded-full text-xs" onClick={() => onPageChange(p)}>
               {p}
             </Button>
           )
         )}
-
-        {/* Next */}
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-8 w-8 rounded-full"
-          disabled={page === totalPages}
-          onClick={() => onPageChange(page + 1)}
-          title="Next page"
-        >
+        <Button variant="outline" size="icon" className="h-8 w-8 rounded-full" disabled={page === totalPages} onClick={() => onPageChange(page + 1)} title="Next page">
           <ChevronRight className="h-3.5 w-3.5" />
         </Button>
-
-        {/* Last */}
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-8 w-8 rounded-full"
-          disabled={page === totalPages}
-          onClick={() => onPageChange(totalPages)}
-          title="Last page"
-        >
+        <Button variant="outline" size="icon" className="h-8 w-8 rounded-full" disabled={page === totalPages} onClick={() => onPageChange(totalPages)} title="Last page">
           <ChevronsRight className="h-3.5 w-3.5" />
         </Button>
       </div>
@@ -349,7 +308,8 @@ export function StudentManagementContent() {
     examination: "",
     exam_date: new Date().toISOString().split("T")[0],
   });
-  const [bulkMarks, setBulkMarks] = useState<Record<number, string>>({});
+  // Now each entry tracks both marks and total_marks per student
+  const [bulkMarks, setBulkMarks] = useState<Record<number, BulkEntry>>({});
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
 
@@ -362,7 +322,6 @@ export function StudentManagementContent() {
   const [importError, setImportError] = useState("");
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
-  // Excel marks-only rows: { student_id, subject, marks, examination, exam_date }
   const [xlsxMarksRows, setXlsxMarksRows] = useState<Array<{
     student_id: number; studentName: string; subject: string;
     marks: number; examination: string; exam_date: string;
@@ -438,12 +397,10 @@ export function StudentManagementContent() {
     });
   }, [students, searchTerm, standardFilter, boardFilter, locationFilter]);
 
-  // Reset to page 1 whenever filters change
   useEffect(() => {
     setPage(1);
   }, [searchTerm, standardFilter, boardFilter, locationFilter]);
 
-  // Slice for current page
   const paginatedStudents = useMemo(() => {
     const start = (page - 1) * pageSize;
     return filteredStudents.slice(start, start + pageSize);
@@ -473,7 +430,6 @@ export function StudentManagementContent() {
 
     const ext = file.name.split(".").pop()?.toLowerCase();
 
-    // ── Excel / XLSX: marks-only mode ──────────────────────────────────────
     if (ext === "xlsx" || ext === "xls") {
       setImportFormat("xlsx");
       setImportMode("marks");
@@ -486,15 +442,12 @@ export function StudentManagementContent() {
 
         if (rows.length === 0) throw new Error("No data rows found in Excel file.");
 
-        // Validate required columns
         const firstRow = rows[0];
         if (!("student_id" in firstRow) || !("marks" in firstRow)) {
           throw new Error("Excel must have at least 'student_id' and 'marks' columns.");
         }
 
-        // Build student lookup map for display names
         const studentMap = new Map(students.map((s) => [s.id, s.name]));
-
         const today = new Date().toISOString().split("T")[0];
         const parsed = rows
           .filter((r) => r.student_id !== "" && r.marks !== "")
@@ -517,7 +470,6 @@ export function StudentManagementContent() {
       return;
     }
 
-    // ── CSV / JSON: full student import ───────────────────────────────────
     setImportMode("students");
     const fmt: "csv" | "json" = ext === "json" ? "json" : "csv";
     setImportFormat(fmt);
@@ -571,7 +523,6 @@ export function StudentManagementContent() {
   };
 
   const confirmImport = async () => {
-    // ── Excel marks import: call API for each row ──────────────────────────
     if (importMode === "marks") {
       if (xlsxMarksRows.length === 0) return;
       setImporting(true);
@@ -587,7 +538,6 @@ export function StudentManagementContent() {
             examination: row.examination,
             exam_date: row.exam_date,
           });
-          // Update local state
           setStudents((prev) =>
             prev.map((s) =>
               s.id === row.student_id
@@ -615,7 +565,6 @@ export function StudentManagementContent() {
       return;
     }
 
-    // ── CSV / JSON student import: local state only ────────────────────────
     if (importPreview.length === 0) return;
     setImporting(true);
     try {
@@ -656,9 +605,11 @@ export function StudentManagementContent() {
 
   const openEdit = async (student: Student) => {
     setSelectedStudent(student);
+    // ✅ Fixed: include total_marks in the reset
     setEditForm({
       subject: "",
       marks: "",
+      total_marks: "",
       examination: "",
       exam_date: new Date().toISOString().split("T")[0],
     });
@@ -740,14 +691,34 @@ export function StudentManagementContent() {
       alert("Please fill Subject, Examination and Date first.");
       return;
     }
-    const entries = Object.entries(bulkMarks).filter(([, v]) => v.trim() !== "");
+    // Only include entries where marks is filled
+    const entries = Object.entries(bulkMarks).filter(([, v]) => v.marks.trim() !== "");
     if (entries.length === 0) {
       alert("Enter marks for at least one student.");
       return;
     }
-    const invalid = entries.find(([, v]) => Number.isNaN(Number(v)) || Number(v) < 0);
-    if (invalid) {
+    // Validate marks
+    const invalidMarks = entries.find(([, v]) => Number.isNaN(Number(v.marks)) || Number(v.marks) < 0);
+    if (invalidMarks) {
       alert("All marks must be valid non-negative numbers.");
+      return;
+    }
+    // Validate total_marks where provided
+    const invalidTotal = entries.find(([, v]) => {
+      if (v.total_marks.trim() === "") return false;
+      return Number.isNaN(Number(v.total_marks)) || Number(v.total_marks) < 0;
+    });
+    if (invalidTotal) {
+      alert("All total marks must be valid non-negative numbers.");
+      return;
+    }
+    // Validate marks <= total_marks where both are provided
+    const exceedsTotal = entries.find(([, v]) => {
+      if (v.total_marks.trim() === "") return false;
+      return Number(v.marks) > Number(v.total_marks);
+    });
+    if (exceedsTotal) {
+      alert("Marks obtained cannot be greater than Total Marks for any student.");
       return;
     }
 
@@ -756,12 +727,14 @@ export function StudentManagementContent() {
     let done = 0;
     const updatedIds: number[] = [];
 
-    for (const [idStr, marksStr] of entries) {
+    for (const [idStr, entry] of entries) {
       const studentId = Number(idStr);
+      const totalMarksNum = entry.total_marks.trim() !== "" ? Number(entry.total_marks) : undefined;
       try {
         await teacherStudentAssessmentsApi.createByStudent(studentId, {
           subject: bulkCommon.subject,
-          marks: Number(marksStr),
+          marks: Number(entry.marks),
+          ...(totalMarksNum !== undefined && { total_marks: totalMarksNum }),
           examination: bulkCommon.examination,
           exam_date: bulkCommon.exam_date,
         });
@@ -773,15 +746,14 @@ export function StudentManagementContent() {
       setBulkProgress({ done, total: entries.length });
     }
 
-    // Refresh latest marks in table for updated students
     setStudents((prev) =>
       prev.map((s) => {
         if (!updatedIds.includes(s.id)) return s;
-        const m = bulkMarks[s.id];
+        const entry = bulkMarks[s.id];
         return {
           ...s,
           subject: bulkCommon.subject,
-          marks: m !== undefined && m.trim() !== "" ? Number(m) : s.marks,
+          marks: entry?.marks.trim() !== "" ? Number(entry.marks) : s.marks,
           examination: bulkCommon.examination,
           exam_date: bulkCommon.exam_date,
         };
@@ -810,6 +782,18 @@ export function StudentManagementContent() {
 
   const openPerformanceAnalysis = (student: Student) => {
     router.push(`/teacherdashboard/performanceanalysis?studentId=${student.id}`);
+  };
+
+  // Helper to update a single field of a student's bulk entry
+  const setBulkEntry = (studentId: number, field: keyof BulkEntry, value: string) => {
+    setBulkMarks((prev) => ({
+      ...prev,
+      [studentId]: {
+        marks: prev[studentId]?.marks ?? "",
+        total_marks: prev[studentId]?.total_marks ?? "",
+        [field]: value,
+      },
+    }));
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -1023,20 +1007,22 @@ export function StudentManagementContent() {
                       <TableHead>Subject</TableHead>
                       <TableHead>Examination</TableHead>
                       <TableHead>Marks</TableHead>
+                      <TableHead>Total</TableHead>
                       <TableHead>Date</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {historyLoading ? (
-                      <TableRow><TableCell colSpan={4} className="text-center py-6"><Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" /></TableCell></TableRow>
+                      <TableRow><TableCell colSpan={5} className="text-center py-6"><Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" /></TableCell></TableRow>
                     ) : historyRows.length === 0 ? (
-                      <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">No assessment entries yet.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No assessment entries yet.</TableCell></TableRow>
                     ) : (
                       historyRows.map((row) => (
                         <TableRow key={`${row.id || 0}-${row.exam_date}-${row.subject}`}>
                           <TableCell>{row.subject}</TableCell>
                           <TableCell>{row.examination}</TableCell>
                           <TableCell>{row.marks}</TableCell>
+                          <TableCell>{row.total_marks ?? "—"}</TableCell>
                           <TableCell>{row.exam_date ? String(row.exam_date).split("T")[0] : "—"}</TableCell>
                         </TableRow>
                       ))
@@ -1058,24 +1044,70 @@ export function StudentManagementContent() {
           <div className="space-y-4">
             <div className="space-y-1">
               <Label>Subject</Label>
-              <Input value={editForm.subject} onChange={(e) => setEditForm((p) => ({ ...p, subject: e.target.value }))} placeholder="e.g. Mathematics" />
+              <Input
+                value={editForm.subject}
+                onChange={(e) => setEditForm((p) => ({ ...p, subject: e.target.value }))}
+                placeholder="e.g. Mathematics"
+              />
             </div>
-            <div className="space-y-1">
-              <Label>Marks Obtained</Label>
-              <Input type="number" value={editForm.marks} onChange={(e) => setEditForm((p) => ({ ...p, marks: e.target.value }))} placeholder="e.g. 87" />
+
+            {/* ✅ Marks Obtained + Total Marks side by side */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Marks Obtained</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={editForm.marks}
+                  onChange={(e) => setEditForm((p) => ({ ...p, marks: e.target.value }))}
+                  placeholder="e.g. 87"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>
+                  Total Marks{" "}
+                  <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+                </Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={editForm.total_marks}
+                  onChange={(e) => setEditForm((p) => ({ ...p, total_marks: e.target.value }))}
+                  placeholder="e.g. 100"
+                />
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label>Total Marks</Label>
-              <Input type="number" value={editForm.total_marks} onChange={(e) => setEditForm((p) => ({ ...p, total_marks: e.target.value }))} placeholder="e.g. 100" />
-            </div>
+
+            {/* Live percentage hint */}
+            {editForm.marks !== "" && editForm.total_marks !== "" &&
+              !Number.isNaN(Number(editForm.marks)) && !Number.isNaN(Number(editForm.total_marks)) &&
+              Number(editForm.total_marks) > 0 && (
+              <p className="text-xs text-muted-foreground -mt-2 px-1">
+                {((Number(editForm.marks) / Number(editForm.total_marks)) * 100).toFixed(1)}% scored
+                {Number(editForm.marks) > Number(editForm.total_marks) && (
+                  <span className="ml-2 text-red-500 font-medium">⚠ Marks exceed total</span>
+                )}
+              </p>
+            )}
+
             <div className="space-y-1">
               <Label>Examination</Label>
-              <Input value={editForm.examination} onChange={(e) => setEditForm((p) => ({ ...p, examination: e.target.value }))} placeholder="e.g. Unit Test 1" />
+              <Input
+                value={editForm.examination}
+                onChange={(e) => setEditForm((p) => ({ ...p, examination: e.target.value }))}
+                placeholder="e.g. Unit Test 1"
+              />
             </div>
             <div className="space-y-1">
               <Label>Date</Label>
-              <Input type="date" value={editForm.exam_date} onChange={(e) => setEditForm((p) => ({ ...p, exam_date: e.target.value }))} />
+              <Input
+                type="date"
+                value={editForm.exam_date}
+                onChange={(e) => setEditForm((p) => ({ ...p, exam_date: e.target.value }))}
+              />
             </div>
+
+            {/* History table */}
             <div className="rounded-xl border border-border overflow-hidden">
               <Table>
                 <TableHeader>
@@ -1083,20 +1115,22 @@ export function StudentManagementContent() {
                     <TableHead>Subject</TableHead>
                     <TableHead>Exam</TableHead>
                     <TableHead>Marks</TableHead>
+                    <TableHead>Total</TableHead>
                     <TableHead>Date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {historyLoading ? (
-                    <TableRow><TableCell colSpan={4} className="text-center py-4"><Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" /></TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} className="text-center py-4"><Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" /></TableCell></TableRow>
                   ) : historyRows.length === 0 ? (
-                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-4">No tests added yet.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-4">No tests added yet.</TableCell></TableRow>
                   ) : (
                     historyRows.map((row) => (
                       <TableRow key={`edit-${row.id || 0}-${row.exam_date}-${row.subject}`}>
                         <TableCell>{row.subject}</TableCell>
                         <TableCell>{row.examination}</TableCell>
                         <TableCell>{row.marks}</TableCell>
+                        <TableCell>{row.total_marks ?? "—"}</TableCell>
                         <TableCell>{row.exam_date ? String(row.exam_date).split("T")[0] : "—"}</TableCell>
                       </TableRow>
                     ))
@@ -1126,7 +1160,6 @@ export function StudentManagementContent() {
           </DialogHeader>
 
           <div className="space-y-4 flex-1 overflow-y-auto pr-1">
-            {/* Format hint */}
             <div className="rounded-lg bg-muted/60 p-3 text-sm text-muted-foreground space-y-1">
               <p className="font-medium text-foreground">Supported formats: CSV, JSON &amp; Excel (.xlsx)</p>
               <p>
@@ -1139,7 +1172,6 @@ export function StudentManagementContent() {
               </p>
             </div>
 
-            {/* File drop zone */}
             <div
               className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border p-8 cursor-pointer hover:bg-muted/40 transition-colors"
               onClick={() => fileInputRef.current?.click()}
@@ -1164,12 +1196,10 @@ export function StudentManagementContent() {
               />
             </div>
 
-            {/* Error */}
             {importError && (
               <p className="text-sm text-red-500 rounded-lg bg-red-50 px-3 py-2 whitespace-pre-line">{importError}</p>
             )}
 
-            {/* Excel marks preview */}
             {importMode === "marks" && xlsxMarksRows.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
@@ -1216,7 +1246,6 @@ export function StudentManagementContent() {
               </div>
             )}
 
-            {/* CSV/JSON student preview */}
             {importMode === "students" && importPreview.length > 0 && (
               <div className="space-y-2">
                 <p className="text-sm font-medium">
@@ -1258,7 +1287,6 @@ export function StudentManagementContent() {
               </div>
             )}
 
-            {/* Progress bar (during Excel save) */}
             {importProgress && (
               <div className="space-y-1">
                 <div className="flex justify-between text-xs text-muted-foreground">
@@ -1289,9 +1317,10 @@ export function StudentManagementContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
       {/* ── Bulk Marks Dialog ────────────────────────────────────────────── */}
       <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ClipboardList className="h-5 w-5 text-amber-500" />
@@ -1328,12 +1357,12 @@ export function StudentManagementContent() {
               </div>
             </div>
 
-            {/* Info */}
             <p className="text-xs text-muted-foreground px-1">
-              Showing {filteredStudents.length} student{filteredStudents.length !== 1 ? "s" : ""} matching current filters. Leave marks blank to skip a student.
+              Showing {filteredStudents.length} student{filteredStudents.length !== 1 ? "s" : ""} matching current filters.
+              Leave marks blank to skip a student. Total Marks is optional per student.
             </p>
 
-            {/* Student marks table */}
+            {/* Student marks table — now with Total Marks column */}
             <div className="rounded-xl border border-border overflow-hidden">
               <Table>
                 <TableHeader>
@@ -1341,36 +1370,79 @@ export function StudentManagementContent() {
                     <TableHead className="text-white">Name</TableHead>
                     <TableHead className="text-white">Std</TableHead>
                     <TableHead className="text-white">Board</TableHead>
-                    <TableHead className="text-white w-36">Marks</TableHead>
+                    <TableHead className="text-white w-36">Marks Obtained</TableHead>
+                    <TableHead className="text-white w-36">Total Marks</TableHead>
+                    <TableHead className="text-white w-20">%</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredStudents.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground text-sm">
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-sm">
                         No students match current filters.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredStudents.map((student) => (
-                      <TableRow key={student.id}>
-                        <TableCell className="font-medium">{student.name}</TableCell>
-                        <TableCell>{student.standard}</TableCell>
-                        <TableCell>{student.board}</TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min={0}
-                            placeholder="—"
-                            value={bulkMarks[student.id] ?? ""}
-                            onChange={(e) =>
-                              setBulkMarks((prev) => ({ ...prev, [student.id]: e.target.value }))
-                            }
-                            className="h-8 w-28 rounded-full text-sm"
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    filteredStudents.map((student) => {
+                      const entry = bulkMarks[student.id];
+                      const marksVal = entry?.marks ?? "";
+                      const totalVal = entry?.total_marks ?? "";
+                      const marksNum = Number(marksVal);
+                      const totalNum = Number(totalVal);
+                      const showPct =
+                        marksVal !== "" && totalVal !== "" &&
+                        !Number.isNaN(marksNum) && !Number.isNaN(totalNum) &&
+                        totalNum > 0;
+                      const pct = showPct ? (marksNum / totalNum) * 100 : null;
+                      const exceedsTotal = showPct && marksNum > totalNum;
+
+                      return (
+                        <TableRow key={student.id}>
+                          <TableCell className="font-medium">{student.name}</TableCell>
+                          <TableCell>{student.standard}</TableCell>
+                          <TableCell>{student.board}</TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min={0}
+                              placeholder="—"
+                              value={marksVal}
+                              onChange={(e) => setBulkEntry(student.id, "marks", e.target.value)}
+                              className="h-8 w-28 rounded-full text-sm"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min={0}
+                              placeholder="—"
+                              value={totalVal}
+                              onChange={(e) => setBulkEntry(student.id, "total_marks", e.target.value)}
+                              className="h-8 w-28 rounded-full text-sm"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            {exceedsTotal ? (
+                              <span className="text-xs font-semibold text-red-500">⚠ over</span>
+                            ) : pct !== null ? (
+                              <span
+                                className={`text-xs font-semibold ${
+                                  pct >= 75
+                                    ? "text-emerald-600"
+                                    : pct >= 50
+                                    ? "text-amber-600"
+                                    : "text-red-500"
+                                }`}
+                              >
+                                {pct.toFixed(0)}%
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
@@ -1407,8 +1479,8 @@ export function StudentManagementContent() {
               ) : (
                 <>
                   <ClipboardList className="h-4 w-4 mr-2" />
-                  Save {Object.values(bulkMarks).filter((v) => v.trim() !== "").length > 0
-                    ? `${Object.values(bulkMarks).filter((v) => v.trim() !== "").length} Marks`
+                  Save {Object.values(bulkMarks).filter((v) => v.marks.trim() !== "").length > 0
+                    ? `${Object.values(bulkMarks).filter((v) => v.marks.trim() !== "").length} Marks`
                     : "Marks"}
                 </>
               )}
