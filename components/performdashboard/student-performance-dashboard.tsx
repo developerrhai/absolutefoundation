@@ -565,7 +565,14 @@
 
           // Get latest assessment row
           const latest = rows[0];
-          const pct = toNum(latest.marks);
+
+          // Use actual total_marks from DB, fallback to 100
+          const totalMarks =
+            latest.total_marks != null && latest.total_marks > 0
+              ? latest.total_marks
+              : 100;
+
+          const pct = (toNum(latest.marks) / totalMarks) * 100;
           const performance = getPerformanceLabel(pct);
           const examDate = latest.exam_date
             ? new Date(latest.exam_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
@@ -578,7 +585,7 @@
             latest.examination || "Weekly Test",
             examDate,
             toNum(latest.marks),
-            100,
+            totalMarks,      // ← dynamic from DB
             performance
           );
 
