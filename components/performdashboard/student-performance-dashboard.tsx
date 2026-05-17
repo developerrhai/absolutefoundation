@@ -549,52 +549,59 @@
           continue;
         }
 
-        try {
-          // Fetch assessments (use cache if already loaded)
-          let rows: AssessmentRow[] = assessmentCache.get(student.id) || [];
-          if (!rows.length) {
-            const res: any = await teacherStudentAssessmentsApi.getByStudent(student.id);
-            rows = mapAssessmentRows(res?.data || []);
-            setAssessmentCache((prev) => new Map(prev).set(student.id, rows));
-          }
-
-          if (!rows.length) {
-            results.push({ studentName: student.name, phone: student.phone, status: "skipped", reason: "No assessment data" });
-            continue;
-          }
-
-          // Get latest assessment row
-          const latest = rows[0];
-          const pct = toNum(latest.marks);
-          const performance = getPerformanceLabel(pct);
-          const examDate = latest.exam_date
-            ? new Date(latest.exam_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
-            : new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-
-          const result = await sendWhatsAppViaAPI(
-            student.phone,
-            student.name,
-            student.standard,
-            latest.examination || "Weekly Test",
-            examDate,
-            toNum(latest.marks),
-            100,
-            performance
-          );
-
-          results.push({
-            studentName: student.name,
-            phone: student.phone,
-            status: result.success ? "success" : "failed",
-            reason: result.success ? undefined : result.message,
-          });
-
-          // Small delay between API calls to avoid rate limiting
-          await new Promise((r) => setTimeout(r, 300));
-
-        } catch (e: any) {
-          results.push({ studentName: student.name, phone: student.phone, status: "failed", reason: e?.message || "Unknown error" });
+            try {
+        // Fetch assessments (use cache if already loaded)
+        let rows: AssessmentRow[] = assessmentCache.get(student.id) || [];
+        if (!rows.length) {
+          const res: any = await teacherStudentAssessmentsApi.getByStudent(student.id);
+          rows = mapAssessmentRows(res?.data || []);
+          setAssessmentCache((prev) => new Map(prev).set(student.id, rows));
         }
+
+        if (!rows.length) {
+          results.push({ studentName: student.name, phone: student.phone, status: "skipped", reason: "No assessment data" });
+          continue;
+        }
+
+        // Get latest assessment row
+        const latest = rows[0];
+
+        // Use actual total_marks from DB, fallback to 100
+        const totalMarks =
+          latest.total_marks != null && latest.total_marks > 0
+            ? latest.total_marks
+            : 100;
+
+        // Calculate real percentage for performance label
+        const pct = (toNum(latest.marks) / totalMarks) * 100;
+        const performance = getPerformanceLabel(pct);
+
+        const examDate = latest.exam_date
+          ? new Date(latest.exam_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+          : new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
+        const result = await sendWhatsAppViaAPI(
+          student.phone,
+          student.name,
+          student.standard,
+          latest.examination || "Weekly Test",
+          examDate,
+          toNum(latest.marks),
+          totalMarks,   // ← actual value from DB
+          performance
+        );
+
+        results.push({
+          studentName: student.name,
+          phone: student.phone,
+          status: result.success ? "success" : "failed",
+          reason: result.success ? undefined : result.message,
+        });
+
+        await new Promise((r) => setTimeout(r, 300));
+
+      } catch (e: any) {
+        results.push({ studentName: student.name, phone: student.phone, status: "failed", reason: e?.message || "Unknown error" });
       }
 
       setBulkResults(results);
