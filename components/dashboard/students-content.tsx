@@ -9,27 +9,25 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { GraduationCap, Search, Eye, Trash2, Phone, User, MapPin, BookOpen, Loader2, IndianRupee, Pencil, FileSpreadsheet, Upload } from "lucide-react"
+import { GraduationCap, Search, Eye, Trash2, Phone, User, MapPin, BookOpen, Loader2, IndianRupee, Pencil, FileSpreadsheet, Upload, SquarePen } from "lucide-react"
 import { studentsApi, studentsUniversalApi } from "@/lib/api"
 import * as XLSX from "xlsx"
 
 interface Student {
   id: number; name: string; phone: string; father_name: string; father_phone: string
   standard: string; course: string; admission_year: string; fee: number; paid_fee: number
-  profile_img?: string; adhar_number?: string
+  profile_img?: string; adhar_number?: string; email?: string; address?: string
 }
 
-// Fee status badge helper
 const feeStatus = (s: Student) => {
-  const fee    = Number(s.fee)
-  const paid   = Number(s.paid_fee)
-  if (fee === 0)       return { label: "No Fee",  cls: "bg-gray-100 text-gray-500" }
-  if (paid >= fee)     return { label: "Paid",     cls: "bg-emerald-100 text-emerald-700" }
-  if (paid > 0)        return { label: "Partial",  cls: "bg-yellow-100 text-yellow-700" }
-  return               { label: "Pending",  cls: "bg-red-100 text-red-700" }
+  const fee  = Number(s.fee)
+  const paid = Number(s.paid_fee)
+  if (fee === 0)   return { label: "No Fee",  cls: "bg-gray-100 text-gray-500" }
+  if (paid >= fee) return { label: "Paid",     cls: "bg-emerald-100 text-emerald-700" }
+  if (paid > 0)    return { label: "Partial",  cls: "bg-yellow-100 text-yellow-700" }
+  return           { label: "Pending",  cls: "bg-red-100 text-red-700" }
 }
 
-// Normalise standard values like "5", "5th", "5th Standard" → "5" for loose comparison
 const extractNum = (v: string) => v.replace(/[^0-9]/g, "")
 
 export function StudentsContent() {
@@ -43,21 +41,27 @@ export function StudentsContent() {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   // View modal
-  const [selected,  setSelected]  = useState<Student | null>(null)
-  const [viewOpen,  setViewOpen]  = useState(false)
+  const [selected, setSelected] = useState<Student | null>(null)
+  const [viewOpen, setViewOpen] = useState(false)
+
+  // Edit modal
+  const [editStudent, setEditStudent] = useState<Student | null>(null)
+  const [editOpen,    setEditOpen]    = useState(false)
+  const [editForm,    setEditForm]    = useState<Partial<Student>>({})
+  const [editSaving,  setEditSaving]  = useState(false)
 
   // Update Fee modal
-  const [feeStudent,    setFeeStudent]    = useState<Student | null>(null)
-  const [feeModalOpen,  setFeeModalOpen]  = useState(false)
-  const [newFee,        setNewFee]        = useState("")
-  const [feeSaving,     setFeeSaving]     = useState(false)
+  const [feeStudent,   setFeeStudent]   = useState<Student | null>(null)
+  const [feeModalOpen, setFeeModalOpen] = useState(false)
+  const [newFee,       setNewFee]       = useState("")
+  const [feeSaving,    setFeeSaving]    = useState(false)
 
   // Pay Fee modal
-  const [payStudent,    setPayStudent]    = useState<Student | null>(null)
-  const [payModalOpen,  setPayModalOpen]  = useState(false)
-  const [payAmount,     setPayAmount]     = useState("")
-  const [payMode,       setPayMode]       = useState<"add" | "set">("add")
-  const [paySaving,     setPaySaving]     = useState(false)
+  const [payStudent,   setPayStudent]   = useState<Student | null>(null)
+  const [payModalOpen, setPayModalOpen] = useState(false)
+  const [payAmount,    setPayAmount]    = useState("")
+  const [payMode,      setPayMode]      = useState<"add" | "set">("add")
+  const [paySaving,    setPaySaving]    = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -84,15 +88,12 @@ export function StudentsContent() {
 
   useEffect(() => { load() }, [load])
 
-  // ── Client-side standard filter (handles "5", "5th", "5th Standard", etc.) ──
   const displayedStudents =
     filterStandard === "all"
       ? students
-      : students.filter(
-          s => extractNum(String(s.standard || "")) === extractNum(filterStandard)
-        )
+      : students.filter(s => extractNum(String(s.standard || "")) === extractNum(filterStandard))
 
-  // ── Delete ──────────────────────────────────────────────
+  // ── Delete ───────────────────────────────────────────────
   const handleDelete = async (id: number) => {
     if (!confirm("Delete this student?")) return
     try {
@@ -101,33 +102,52 @@ export function StudentsContent() {
     } catch (err: any) { alert(err.message) }
   }
 
-  // ── Open Update Fee modal ───────────────────────────────
+  // ── Edit ─────────────────────────────────────────────────
+  const openEditModal = (s: Student) => {
+    setEditStudent(s)
+    setEditForm({ ...s })
+    setEditOpen(true)
+  }
+
+  const handleEditChange = (field: keyof Student, value: string) => {
+    setEditForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editStudent) return
+    if (!editForm.name?.trim()) { alert("Name is required"); return }
+    setEditSaving(true)
+    try {
+      await studentsApi.update(editStudent.id, { ...editStudent, ...editForm })
+      setStudents(prev =>
+        prev.map(s => s.id === editStudent.id ? { ...s, ...editForm } as Student : s)
+      )
+      setEditOpen(false)
+    } catch (err: any) { alert(err.message) }
+    finally { setEditSaving(false) }
+  }
+
+  // ── Update Fee ───────────────────────────────────────────
   const openFeeModal = (s: Student) => {
     setFeeStudent(s)
     setNewFee(String(Number(s.fee)))
     setFeeModalOpen(true)
   }
 
-  // ── Save updated fee (changes `fee` column) ─────────────
   const handleUpdateFee = async () => {
     if (!feeStudent) return
     const val = parseFloat(newFee)
     if (isNaN(val) || val < 0) { alert("Enter a valid fee amount"); return }
     setFeeSaving(true)
     try {
-      await studentsApi.update(feeStudent.id, {
-        ...feeStudent,
-        fee: val,
-      })
-      setStudents(prev => prev.map(s =>
-        s.id === feeStudent.id ? { ...s, fee: val } : s
-      ))
+      await studentsApi.update(feeStudent.id, { ...feeStudent, fee: val })
+      setStudents(prev => prev.map(s => s.id === feeStudent.id ? { ...s, fee: val } : s))
       setFeeModalOpen(false)
     } catch (err: any) { alert(err.message) }
     finally { setFeeSaving(false) }
   }
 
-  // ── Open Pay Fee modal ──────────────────────────────────
+  // ── Pay Fee ──────────────────────────────────────────────
   const openPayModal = (s: Student) => {
     setPayStudent(s)
     setPayAmount("")
@@ -135,20 +155,14 @@ export function StudentsContent() {
     setPayModalOpen(true)
   }
 
-  // ── Save payment (changes `paid_fee` column) ────────────
   const handlePayFee = async () => {
     if (!payStudent) return
     const val = parseFloat(payAmount)
     if (isNaN(val) || val < 0) { alert("Enter a valid amount"); return }
 
-    let newPaid: number
-    if (payMode === "add") {
-      newPaid = Number(payStudent.paid_fee) + val
-    } else {
-      newPaid = val
-    }
-
+    const newPaid  = payMode === "add" ? Number(payStudent.paid_fee) + val : val
     const totalFee = Number(payStudent.fee)
+
     if (totalFee > 0 && newPaid > totalFee) {
       alert(`Paid amount (₹${newPaid.toLocaleString()}) cannot exceed total fee (₹${totalFee.toLocaleString()})`)
       return
@@ -156,68 +170,36 @@ export function StudentsContent() {
 
     setPaySaving(true)
     try {
-      await studentsApi.update(payStudent.id, {
-        ...payStudent,
-        paid_fee: newPaid,
-      })
-      setStudents(prev => prev.map(s =>
-        s.id === payStudent.id ? { ...s, paid_fee: newPaid } : s
-      ))
+      await studentsApi.update(payStudent.id, { ...payStudent, paid_fee: newPaid })
+      setStudents(prev => prev.map(s => s.id === payStudent.id ? { ...s, paid_fee: newPaid } : s))
       setPayModalOpen(false)
     } catch (err: any) { alert(err.message) }
     finally { setPaySaving(false) }
   }
 
+  // ── Export ───────────────────────────────────────────────
   const handleExportExcel = () => {
-    if (!displayedStudents.length) {
-      alert("No students to export")
-      return
-    }
+    if (!displayedStudents.length) { alert("No students to export"); return }
 
     const headers = [
-      "Sr No.",
-      "ID",
-      "Name",
-      "Phone",
-      "Father Name",
-      "Father Phone",
-      "Standard",
-      "Course",
-      "Admission Year",
-      "Total Fee",
-      "Paid Fee",
-      "Balance",
-      "Fee Status",
+      "Sr No.", "ID", "Name", "Phone", "Father Name", "Father Phone",
+      "Standard", "Course", "Admission Year", "Total Fee", "Paid Fee", "Balance", "Fee Status",
     ]
 
     const rows = displayedStudents.map((s, idx) => {
       const totalFee = Number(s.fee || 0)
-      const paidFee = Number(s.paid_fee || 0)
-      const balance = Math.max(totalFee - paidFee, 0)
-      const status = feeStatus(s).label
-
-      return [
-        idx + 1,
-        s.id,
-        s.name || "",
-        s.phone || "",
-        s.father_name || "",
-        s.father_phone || "",
-        s.standard || "",
-        s.course || "",
-        s.admission_year || "",
-        totalFee,
-        paidFee,
-        balance,
-        status,
-      ]
+      const paidFee  = Number(s.paid_fee || 0)
+      const balance  = Math.max(totalFee - paidFee, 0)
+      const status   = feeStatus(s).label
+      return [idx + 1, s.id, s.name || "", s.phone || "", s.father_name || "", s.father_phone || "",
+        s.standard || "", s.course || "", s.admission_year || "", totalFee, paidFee, balance, status]
     })
 
     const esc = (value: string | number) => `"${String(value).replace(/"/g, "\"\"")}"`
     const csv = [headers, ...rows].map((row) => row.map(esc).join(",")).join("\n")
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement("a")
     a.href = url
     a.download = `students_${new Date().toISOString().slice(0, 10)}.csv`
     document.body.appendChild(a)
@@ -226,19 +208,14 @@ export function StudentsContent() {
     URL.revokeObjectURL(url)
   }
 
+  // ── Import ───────────────────────────────────────────────
   const normalizeHeader = (value: unknown) =>
-    String(value || "")
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_+|_+$/g, "")
+    String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "")
 
   const pickValue = (row: Record<string, unknown>, keys: string[]) => {
     for (const key of keys) {
       const value = row[key]
-      if (value !== undefined && value !== null && String(value).trim() !== "") {
-        return value
-      }
+      if (value !== undefined && value !== null && String(value).trim() !== "") return value
     }
     return ""
   }
@@ -246,65 +223,52 @@ export function StudentsContent() {
   const handleImportExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
-
     setImporting(true)
     try {
-      const buffer = await file.arrayBuffer()
+      const buffer   = await file.arrayBuffer()
       const workbook = XLSX.read(buffer, { type: "array" })
-      const sheetName = workbook.SheetNames[0]
-      const sheet = workbook.Sheets[sheetName]
-      const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" })
+      const sheet    = workbook.Sheets[workbook.SheetNames[0]]
+      const rawRows  = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" })
 
-      if (!rawRows.length) {
-        alert("Excel sheet is empty")
-        return
-      }
+      if (!rawRows.length) { alert("Excel sheet is empty"); return }
 
       const normalizedRows = rawRows.map((row) => {
         const next: Record<string, unknown> = {}
-        Object.entries(row).forEach(([key, value]) => {
-          next[normalizeHeader(key)] = value
-        })
+        Object.entries(row).forEach(([key, value]) => { next[normalizeHeader(key)] = value })
         return next
       })
 
-      const payloads = normalizedRows
-        .map((row) => {
-          const name = String(pickValue(row, ["name", "student_name", "student"])).trim()
-          if (!name) return null
-
-          return {
-            name,
-            email: String(pickValue(row, ["email"])).trim(),
-            phone: String(pickValue(row, ["phone", "student_phone", "mobile", "contact"])).trim(),
-            father_name: String(pickValue(row, ["father_name", "parent_name", "guardian_name"])).trim(),
-            father_phone: String(pickValue(row, ["father_phone", "parent_phone", "guardian_phone"])).trim(),
-            standard: String(pickValue(row, ["standard", "std", "class"])).trim(),
-            course: String(pickValue(row, ["course", "batch"])).trim(),
-            admission_year: String(pickValue(row, ["admission_year", "year"])).trim(),
-            institute: String(pickValue(row, ["institute", "school", "college"])).trim(),
-            fee: Number(pickValue(row, ["fee", "total_fee"])) || 0,
-            paid_fee: Number(pickValue(row, ["paid_fee", "paid", "paidamount"])) || 0,
-          }
-        })
-        .filter(Boolean) as Array<Record<string, unknown>>
+      const payloads = normalizedRows.map((row) => {
+        const name = String(pickValue(row, ["name", "student_name", "student"])).trim()
+        if (!name) return null
+        return {
+          name,
+          email:          String(pickValue(row, ["email"])).trim(),
+          phone:          String(pickValue(row, ["phone", "student_phone", "mobile", "contact"])).trim(),
+          father_name:    String(pickValue(row, ["father_name", "parent_name", "guardian_name"])).trim(),
+          father_phone:   String(pickValue(row, ["father_phone", "parent_phone", "guardian_phone"])).trim(),
+          standard:       String(pickValue(row, ["standard", "std", "class"])).trim(),
+          course:         String(pickValue(row, ["course", "batch"])).trim(),
+          admission_year: String(pickValue(row, ["admission_year", "year"])).trim(),
+          institute:      String(pickValue(row, ["institute", "school", "college"])).trim(),
+          fee:            Number(pickValue(row, ["fee", "total_fee"])) || 0,
+          paid_fee:       Number(pickValue(row, ["paid_fee", "paid", "paidamount"])) || 0,
+        }
+      }).filter(Boolean) as Array<Record<string, unknown>>
 
       if (!payloads.length) {
         alert("No valid student rows found. Add at least a Name column in the Excel sheet.")
         return
       }
 
-      const results = await Promise.allSettled(payloads.map((payload) => studentsApi.create(payload)))
-      const successCount = results.filter((result) => result.status === "fulfilled").length
-      const failedCount = results.length - successCount
-
+      const results      = await Promise.allSettled(payloads.map((p) => studentsApi.create(p)))
+      const successCount = results.filter((r) => r.status === "fulfilled").length
+      const failedCount  = results.length - successCount
       await load()
 
-      if (failedCount > 0) {
-        alert(`${successCount} students imported successfully. ${failedCount} rows failed.`)
-      } else {
-        alert(`${successCount} students imported successfully.`)
-      }
+      alert(failedCount > 0
+        ? `${successCount} students imported successfully. ${failedCount} rows failed.`
+        : `${successCount} students imported successfully.`)
     } catch (err: any) {
       alert(err.message || "Failed to import Excel file")
     } finally {
@@ -343,13 +307,8 @@ export function StudentsContent() {
 
           <div className="flex justify-end mb-4">
             <div className="flex items-center gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                onChange={handleImportExcel}
-                className="hidden"
-              />
+              <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv"
+                onChange={handleImportExcel} className="hidden" />
               <Button onClick={() => fileInputRef.current?.click()} variant="outline" disabled={importing}>
                 {importing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
                 Import Excel
@@ -370,7 +329,6 @@ export function StudentsContent() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-slate-900">
-                    {/* ── Sr No. ── */}
                     <TableHead className="text-white font-semibold w-12">Sr no.</TableHead>
                     <TableHead className="text-white font-semibold">Name</TableHead>
                     <TableHead className="text-white font-semibold hidden sm:table-cell">Phone</TableHead>
@@ -395,7 +353,6 @@ export function StudentsContent() {
                     const { label, cls } = feeStatus(s)
                     return (
                       <TableRow key={s.id} className="hover:bg-muted/50">
-                        {/* ── Sr No. ── */}
                         <TableCell className="text-muted-foreground text-sm">{idx + 1}</TableCell>
                         <TableCell className="font-medium">{s.name}</TableCell>
                         <TableCell className="hidden sm:table-cell">{s.phone}</TableCell>
@@ -420,6 +377,12 @@ export function StudentsContent() {
                               title="View details"
                               onClick={() => { setSelected(s); setViewOpen(true) }}>
                               <Eye className="h-4 w-4" />
+                            </Button>
+                            {/* ── Edit Button ── */}
+                            <Button size="sm" variant="outline" className="h-8 w-8 p-0 text-violet-600 hover:text-violet-700 hover:border-violet-300"
+                              title="Edit student"
+                              onClick={() => openEditModal(s)}>
+                              <SquarePen className="h-4 w-4" />
                             </Button>
                             <Button size="sm" variant="outline" className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:border-blue-300"
                               title="Update total fee"
@@ -459,11 +422,8 @@ export function StudentsContent() {
             <div className="space-y-3">
               <div className="flex justify-center">
                 {selected.profile_img ? (
-                  <img
-                    src={selected.profile_img}
-                    alt={selected.name}
-                    className="w-20 h-20 rounded-full object-cover border-2 border-border"
-                  />
+                  <img src={selected.profile_img} alt={selected.name}
+                    className="w-20 h-20 rounded-full object-cover border-2 border-border" />
                 ) : (
                   <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center text-2xl font-bold text-muted-foreground border-2 border-border">
                     {selected.name?.charAt(0)?.toUpperCase()}
@@ -472,12 +432,12 @@ export function StudentsContent() {
               </div>
 
               {[
-                { icon: User,     label: "Name",           value: selected.name },
-                { icon: Phone,    label: "Phone",           value: selected.phone },
-                { icon: User,     label: "Father Name",     value: selected.father_name },
-                { icon: Phone,    label: "Father Phone",    value: selected.father_phone },
-                { icon: BookOpen, label: "Admission Year",  value: selected.admission_year },
-                { icon: User,     label: "Aadhaar Number",  value: selected.adhar_number || "—" },
+                { icon: User,     label: "Name",          value: selected.name },
+                { icon: Phone,    label: "Phone",          value: selected.phone },
+                { icon: User,     label: "Father Name",    value: selected.father_name },
+                { icon: Phone,    label: "Father Phone",   value: selected.father_phone },
+                { icon: BookOpen, label: "Admission Year", value: selected.admission_year },
+                { icon: User,     label: "Aadhaar Number", value: selected.adhar_number || "—" },
               ].map(({ icon: Icon, label, value }) => (
                 <div key={label} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
                   <Icon className="h-5 w-5 text-muted-foreground shrink-0" />
@@ -507,10 +467,8 @@ export function StudentsContent() {
                   </div>
                 </div>
                 <div className="w-full bg-muted-foreground/20 rounded-full h-2 mt-1">
-                  <div
-                    className="bg-emerald-500 h-2 rounded-full transition-all"
-                    style={{ width: `${Math.min((Number(selected.paid_fee) / (Number(selected.fee) || 1)) * 100, 100)}%` }}
-                  />
+                  <div className="bg-emerald-500 h-2 rounded-full transition-all"
+                    style={{ width: `${Math.min((Number(selected.paid_fee) / (Number(selected.fee) || 1)) * 100, 100)}%` }} />
                 </div>
                 <p className="text-xs text-right text-muted-foreground">
                   {Number(selected.fee) > 0
@@ -520,6 +478,79 @@ export function StudentsContent() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Student Modal ───────────────────────────── */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <SquarePen className="h-5 w-5 text-violet-600" /> Edit Student
+            </DialogTitle>
+          </DialogHeader>
+
+          {editStudent && (
+            <div className="max-h-[70vh] overflow-y-auto pr-1 space-y-4 py-2">
+
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Personal Information</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label htmlFor="edit-name">Name <span className="text-destructive">*</span></Label>
+                  <Input id="edit-name" value={editForm.name ?? ""} onChange={e => handleEditChange("name", e.target.value)} placeholder="Full name" autoFocus />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="edit-phone">Phone</Label>
+                  <Input id="edit-phone" value={editForm.phone ?? ""} onChange={e => handleEditChange("phone", e.target.value)} placeholder="Student phone" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="edit-father-name">Father Name</Label>
+                  <Input id="edit-father-name" value={editForm.father_name ?? ""} onChange={e => handleEditChange("father_name", e.target.value)} placeholder="Father's name" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="edit-father-phone">Father Phone</Label>
+                  <Input id="edit-father-phone" value={editForm.father_phone ?? ""} onChange={e => handleEditChange("father_phone", e.target.value)} placeholder="Father's phone" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="edit-aadhar">Aadhaar Number</Label>
+                  <Input id="edit-aadhar" value={editForm.adhar_number ?? ""} onChange={e => handleEditChange("adhar_number", e.target.value)} placeholder="12-digit Aadhaar" maxLength={12} />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="edit-email">Email</Label>
+                  <Input id="edit-email" type="email" value={editForm.email ?? ""} onChange={e => handleEditChange("email", e.target.value)} placeholder="Email address" />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label htmlFor="edit-address">Address</Label>
+                  <Input id="edit-address" value={editForm.address ?? ""} onChange={e => handleEditChange("address", e.target.value)} placeholder="Full address" />
+                </div>
+              </div>
+
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-2">Academic Information</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <Label htmlFor="edit-standard">Standard</Label>
+                  <Input id="edit-standard" value={editForm.standard ?? ""} onChange={e => handleEditChange("standard", e.target.value)} placeholder="e.g. 10th Standard" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="edit-course">Course</Label>
+                  <Input id="edit-course" value={editForm.course ?? ""} onChange={e => handleEditChange("course", e.target.value)} placeholder="e.g. JEE / NEET" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="edit-year">Admission Year</Label>
+                  <Input id="edit-year" value={editForm.admission_year ?? ""} onChange={e => handleEditChange("admission_year", e.target.value)} placeholder="e.g. 2024" />
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveEdit} disabled={editSaving} className="bg-violet-600 hover:bg-violet-700">
+              {editSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -556,16 +587,9 @@ export function StudentsContent() {
                 <Label htmlFor="new-fee">New Total Fee (₹) <span className="text-destructive">*</span></Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">₹</span>
-                  <Input
-                    id="new-fee"
-                    type="number"
-                    min="0"
-                    value={newFee}
-                    onChange={e => setNewFee(e.target.value)}
-                    placeholder="Enter new fee amount"
-                    className="pl-7"
-                    autoFocus
-                  />
+                  <Input id="new-fee" type="number" min="0" value={newFee}
+                    onChange={e => setNewFee(e.target.value)} placeholder="Enter new fee amount"
+                    className="pl-7" autoFocus />
                 </div>
                 {newFee && (
                   <p className="text-xs text-muted-foreground px-1">
@@ -633,31 +657,21 @@ export function StudentsContent() {
               <div className="space-y-2">
                 <Label>Payment Type</Label>
                 <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setPayMode("add")}
+                  <button onClick={() => setPayMode("add")}
                     className={`py-2 px-3 rounded-lg border text-sm font-medium transition-all ${
-                      payMode === "add"
-                        ? "bg-emerald-600 text-white border-emerald-600"
-                        : "border-border text-muted-foreground hover:border-emerald-400"
-                    }`}
-                  >
+                      payMode === "add" ? "bg-emerald-600 text-white border-emerald-600" : "border-border text-muted-foreground hover:border-emerald-400"
+                    }`}>
                     + Add Payment
                   </button>
-                  <button
-                    onClick={() => setPayMode("set")}
+                  <button onClick={() => setPayMode("set")}
                     className={`py-2 px-3 rounded-lg border text-sm font-medium transition-all ${
-                      payMode === "set"
-                        ? "bg-blue-600 text-white border-blue-600"
-                        : "border-border text-muted-foreground hover:border-blue-400"
-                    }`}
-                  >
+                      payMode === "set" ? "bg-blue-600 text-white border-blue-600" : "border-border text-muted-foreground hover:border-blue-400"
+                    }`}>
                     = Set Total Paid
                   </button>
                 </div>
                 <p className="text-xs text-muted-foreground px-1">
-                  {payMode === "add"
-                    ? "Adds this amount on top of the existing paid amount"
-                    : "Sets the paid_fee column to exactly this value"}
+                  {payMode === "add" ? "Adds this amount on top of the existing paid amount" : "Sets the paid_fee column to exactly this value"}
                 </p>
               </div>
 
@@ -668,16 +682,10 @@ export function StudentsContent() {
                 </Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">₹</span>
-                  <Input
-                    id="pay-amount"
-                    type="number"
-                    min="0"
-                    value={payAmount}
+                  <Input id="pay-amount" type="number" min="0" value={payAmount}
                     onChange={e => setPayAmount(e.target.value)}
                     placeholder={payMode === "add" ? "Amount being paid now" : "Total amount paid so far"}
-                    className="pl-7"
-                    autoFocus
-                  />
+                    className="pl-7" autoFocus />
                 </div>
 
                 {payAmount && !isNaN(parseFloat(payAmount)) && (
@@ -695,11 +703,10 @@ export function StudentsContent() {
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Balance will be</span>
                       <span className="font-bold text-red-500">
-                        ₹{Math.max(0,
-                          Number(payStudent.fee) - (payMode === "add"
-                            ? Number(payStudent.paid_fee) + parseFloat(payAmount)
-                            : parseFloat(payAmount))
-                        ).toLocaleString()}
+                        ₹{Math.max(0, Number(payStudent.fee) - (payMode === "add"
+                          ? Number(payStudent.paid_fee) + parseFloat(payAmount)
+                          : parseFloat(payAmount)
+                        )).toLocaleString()}
                       </span>
                     </div>
                   </div>
