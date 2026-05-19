@@ -19,6 +19,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   ClipboardList,
+  Plus,
+  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/teacher/ui/input";
@@ -70,6 +72,12 @@ type AssessmentRow = {
   total_marks?: number;
   examination: string;
   exam_date: string;
+};
+
+// ─── Subject column type for bulk marks ──────────────────────────────────────
+type SubjectCol = {
+  id: string; // unique col id, e.g. "col-0", "col-1"
+  subject: string;
 };
 
 // ─── CSV helpers ─────────────────────────────────────────────────────────────
@@ -253,12 +261,17 @@ export default function StudentManagementContent() {
   // ── Bulk marks state ──────────────────────────────────────────────────────
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkCommon, setBulkCommon] = useState({
-    subject: "",
     examination: "",
     exam_date: new Date().toISOString().split("T")[0],
     total_marks: "",
   });
-  const [bulkMarks, setBulkMarks] = useState<Record<number, string>>({});
+
+  // Multi-subject columns — each col has its own subject label
+  // bulkMarks key: `${studentId}-${colId}`
+  const [bulkSubjectCols, setBulkSubjectCols] = useState<SubjectCol[]>([
+    { id: "col-0", subject: "" },
+  ]);
+  const [bulkMarks, setBulkMarks] = useState<Record<string, string>>({});
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
 
@@ -351,17 +364,22 @@ export default function StudentManagementContent() {
   // ── Bulk Export (Excel template) ──────────────────────────────────────────
   const exportBulkTemplate = async () => {
     const XLSX = await import("xlsx");
-    const rows = filteredStudents.map((s) => ({
-      student_id: s.id,
-      name: s.name,
-      standard: s.standard,
-      board: s.board,
-      subject: bulkCommon.subject || "",
-      examination: bulkCommon.examination || "",
-      exam_date: bulkCommon.exam_date || new Date().toISOString().split("T")[0],
-      marks: bulkMarks[s.id] ?? "",
-      total_marks: bulkCommon.total_marks || "",
-    }));
+    const rows = filteredStudents.map((s) => {
+      const base: Record<string, unknown> = {
+        student_id: s.id,
+        name: s.name,
+        standard: s.standard,
+        board: s.board,
+        examination: bulkCommon.examination || "",
+        exam_date: bulkCommon.exam_date || new Date().toISOString().split("T")[0],
+        total_marks: bulkCommon.total_marks || "",
+      };
+      // Add a column per subject col
+      for (const col of bulkSubjectCols) {
+        base[`marks_${col.subject || col.id}`] = bulkMarks[`${s.id}-${col.id}`] ?? "";
+      }
+      return base;
+    });
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "BulkMarks");
@@ -378,19 +396,17 @@ export default function StudentManagementContent() {
       const wb = XLSX.read(buffer, { type: "array" });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
-      const newMarks: Record<number, string> = { ...bulkMarks };
+      const newMarks: Record<string, string> = { ...bulkMarks };
       for (const row of rows) {
         const id = Number(row.student_id);
         if (!Number.isNaN(id) && row.marks !== "") {
-          newMarks[id] = String(row.marks);
+          newMarks[`${id}-col-0`] = String(row.marks);
         }
       }
       setBulkMarks(newMarks);
-      // Populate common fields from first row if present
       const first = rows[0];
       if (first) {
         setBulkCommon((p) => ({
-          subject: first.subject || p.subject,
           examination: first.examination || p.examination,
           exam_date: first.exam_date
             ? String(first.exam_date).split("T")[0]
@@ -400,11 +416,50 @@ export default function StudentManagementContent() {
               ? String(first.total_marks)
               : p.total_marks,
         }));
+        if (first.subject) {
+          setBulkSubjectCols((prev) => {
+            const updated = [...prev];
+            updated[0] = { ...updated[0], subject: first.subject };
+            return updated;
+          });
+        }
       }
     } catch (err: any) {
       alert("Failed to read file: " + (err.message || "unknown error"));
     }
     if (bulkImportRef.current) bulkImportRef.current.value = "";
+  };
+
+  // ── Add / Remove subject column ───────────────────────────────────────────
+  const addSubjectCol = () => {
+    const newId = `col-${Date.now()}`;
+    setBulkSubjectCols((prev) => [...prev, { id: newId, subject: "" }]);
+  };
+
+  const removeSubjectCol = (colId: string) => {
+    if (bulkSubjectCols.length === 1) return; // keep at least one
+    setBulkSubjectCols((prev) => prev.filter((c) => c.id !== colId));
+    // Clean up marks for this col
+    setBulkMarks((prev) => {
+      const next = { ...prev };
+      for (const key of Object.keys(next)) {
+        if (key.endsWith(`-${colId}`)) delete next[key];
+      }
+      return next;
+    });
+  };
+
+  const updateSubjectColName = (colId: string, subject: string) => {
+    setBulkSubjectCols((prev) =>
+      prev.map((c) => (c.id === colId ? { ...c, subject } : c))
+    );
+  };
+
+  const getBulkMark = (studentId: number, colId: string) =>
+    bulkMarks[`${studentId}-${colId}`] ?? "";
+
+  const setBulkMark = (studentId: number, colId: string, value: string) => {
+    setBulkMarks((prev) => ({ ...prev, [`${studentId}-${colId}`]: value }));
   };
 
   // ── Import ────────────────────────────────────────────────────────────────
@@ -617,58 +672,77 @@ export default function StudentManagementContent() {
     }
   };
 
-  // ── Bulk marks save ───────────────────────────────────────────────────────
+  // ── Bulk marks save — saves each subject col as a separate assessment ─────
   const saveBulkMarks = async () => {
-    if (!bulkCommon.subject || !bulkCommon.examination || !bulkCommon.exam_date) {
-      alert("Please fill Subject, Examination and Date first."); return;
+    if (!bulkCommon.examination || !bulkCommon.exam_date) {
+      alert("Please fill Examination and Date first."); return;
     }
-    const entries = Object.entries(bulkMarks).filter(([, v]) => v.trim() !== "");
-    if (entries.length === 0) { alert("Enter marks for at least one student."); return; }
-    const invalidMarks = entries.find(([, v]) => Number.isNaN(Number(v)) || Number(v) < 0);
-    if (invalidMarks) { alert("All marks must be valid non-negative numbers."); return; }
 
-    const sharedTotal =
-      bulkCommon.total_marks.trim() !== "" ? Number(bulkCommon.total_marks) : undefined;
+    // Validate all cols have a subject name
+    const colsWithoutSubject = bulkSubjectCols.filter((c) => !c.subject.trim());
+    if (colsWithoutSubject.length > 0) {
+      alert(`Please enter a subject name for all ${colsWithoutSubject.length > 1 ? "columns" : "column"}.`); return;
+    }
+
+    // Collect all entries across cols
+    const allEntries: { studentId: number; colId: string; subject: string; marks: number }[] = [];
+    for (const col of bulkSubjectCols) {
+      for (const student of filteredStudents) {
+        const val = getBulkMark(student.id, col.id);
+        if (val.trim() === "") continue;
+        const m = Number(val);
+        if (Number.isNaN(m) || m < 0) { alert(`Invalid marks for "${student.name}" in subject "${col.subject}".`); return; }
+        allEntries.push({ studentId: student.id, colId: col.id, subject: col.subject, marks: m });
+      }
+    }
+
+    if (allEntries.length === 0) { alert("Enter marks for at least one student."); return; }
+
+    const sharedTotal = bulkCommon.total_marks.trim() !== "" ? Number(bulkCommon.total_marks) : undefined;
     if (sharedTotal !== undefined && (Number.isNaN(sharedTotal) || sharedTotal < 0)) {
       alert("Total Marks must be a valid non-negative number."); return;
     }
     if (sharedTotal !== undefined) {
-      const exceedsTotal = entries.find(([, v]) => Number(v) > sharedTotal);
-      if (exceedsTotal) {
-        alert("Some student marks exceed the Total Marks. Please fix before saving."); return;
-      }
+      const over = allEntries.find((e) => e.marks > sharedTotal);
+      if (over) { alert("Some marks exceed the Total Marks. Please fix before saving."); return; }
     }
 
     setBulkSaving(true);
-    setBulkProgress({ done: 0, total: entries.length });
+    setBulkProgress({ done: 0, total: allEntries.length });
     let done = 0;
-    const updatedIds: number[] = [];
+    const updatedIds = new Set<number>();
 
-    for (const [idStr, marksStr] of entries) {
-      const studentId = Number(idStr);
+    for (const entry of allEntries) {
       try {
-        await teacherStudentAssessmentsApi.createByStudent(studentId, {
-          subject: bulkCommon.subject,
-          marks: Number(marksStr),
+        await teacherStudentAssessmentsApi.createByStudent(entry.studentId, {
+          subject: entry.subject,
+          marks: entry.marks,
           ...(sharedTotal !== undefined && { total_marks: sharedTotal }),
           examination: bulkCommon.examination,
           exam_date: bulkCommon.exam_date,
         });
-        updatedIds.push(studentId);
+        updatedIds.add(entry.studentId);
       } catch (err) {
-        console.error(`Failed for student ${studentId}:`, err);
+        console.error(`Failed for student ${entry.studentId}:`, err);
       }
       done++;
-      setBulkProgress({ done, total: entries.length });
+      setBulkProgress({ done, total: allEntries.length });
     }
 
+    // Update local state — use last saved col's marks as displayed mark
     setStudents((prev) => prev.map((s) => {
-      if (!updatedIds.includes(s.id)) return s;
-      const m = bulkMarks[s.id];
+      if (!updatedIds.has(s.id)) return s;
+      // Find last col with a mark for this student
+      let lastMarks: number | undefined;
+      let lastSubject = s.subject;
+      for (const col of [...bulkSubjectCols].reverse()) {
+        const v = getBulkMark(s.id, col.id);
+        if (v.trim() !== "") { lastMarks = Number(v); lastSubject = col.subject; break; }
+      }
       return {
         ...s,
-        subject: bulkCommon.subject,
-        marks: m !== undefined && m.trim() !== "" ? Number(m) : s.marks,
+        subject: lastSubject,
+        marks: lastMarks ?? s.marks,
         examination: bulkCommon.examination,
         exam_date: bulkCommon.exam_date,
       };
@@ -678,7 +752,8 @@ export default function StudentManagementContent() {
     setBulkProgress(null);
     setBulkOpen(false);
     setBulkMarks({});
-    setBulkCommon({ subject: "", examination: "", exam_date: new Date().toISOString().split("T")[0], total_marks: "" });
+    setBulkSubjectCols([{ id: "col-0", subject: "" }]);
+    setBulkCommon({ examination: "", exam_date: new Date().toISOString().split("T")[0], total_marks: "" });
   };
 
   const deleteStudent = async (student: Student) => {
@@ -705,6 +780,11 @@ export default function StudentManagementContent() {
     bulkCommon.total_marks.trim() !== "" && !Number.isNaN(Number(bulkCommon.total_marks)) && Number(bulkCommon.total_marks) > 0
       ? Number(bulkCommon.total_marks)
       : null;
+
+  // Total count of filled marks across all cols
+  const totalFilledMarks = useMemo(() => {
+    return Object.values(bulkMarks).filter((v) => v.trim() !== "").length;
+  }, [bulkMarks]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -735,7 +815,8 @@ export default function StudentManagementContent() {
             className="h-9 rounded-full gap-1.5 text-sm border-amber-400 text-amber-600 hover:bg-amber-50"
             onClick={() => {
               setBulkMarks({});
-              setBulkCommon({ subject: "", examination: "", exam_date: new Date().toISOString().split("T")[0], total_marks: "" });
+              setBulkSubjectCols([{ id: "col-0", subject: "" }]);
+              setBulkCommon({ examination: "", exam_date: new Date().toISOString().split("T")[0], total_marks: "" });
               setBulkProgress(null);
               setBulkOpen(true);
             }}
@@ -1054,7 +1135,7 @@ export default function StudentManagementContent() {
 
       {/* ── Bulk Marks Dialog ────────────────────────────────────────────── */}
       <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             {/* Title row with Import / Export buttons */}
             <div className="flex items-center justify-between gap-2">
@@ -1096,16 +1177,8 @@ export default function StudentManagementContent() {
 
             {/* ── Common fields ─────────────────────────────────────────── */}
             <div className="rounded-xl bg-muted/50 p-4 space-y-3">
-              {/* Row 1 — Subject / Examination / Date */}
+              {/* Examination / Date / Total Marks */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div className="space-y-1">
-                  <Label>Subject <span className="text-red-500">*</span></Label>
-                  <Input
-                    value={bulkCommon.subject}
-                    onChange={(e) => setBulkCommon((p) => ({ ...p, subject: e.target.value }))}
-                    placeholder="e.g. Mathematics"
-                  />
-                </div>
                 <div className="space-y-1">
                   <Label>Examination <span className="text-red-500">*</span></Label>
                   <Input
@@ -1122,14 +1195,10 @@ export default function StudentManagementContent() {
                     onChange={(e) => setBulkCommon((p) => ({ ...p, exam_date: e.target.value }))}
                   />
                 </div>
-              </div>
-
-              {/* Row 2 — Total Marks (shared, optional) */}
-              <div className="flex items-end gap-4">
-                <div className="space-y-1 w-56">
+                <div className="space-y-1">
                   <Label>
                     Total Marks{" "}
-                    <span className="text-xs text-muted-foreground font-normal">(optional — applies to all)</span>
+                    <span className="text-xs text-muted-foreground font-normal">(optional — all subjects)</span>
                   </Label>
                   <Input
                     type="number"
@@ -1139,13 +1208,52 @@ export default function StudentManagementContent() {
                     placeholder="e.g. 100"
                   />
                 </div>
-                {sharedTotalNum !== null && (
-                  <p className="text-xs text-muted-foreground pb-1.5">
-                    Each student's marks will be saved out of{" "}
-                    <span className="font-semibold text-foreground">{sharedTotalNum}</span>.
-                    Live % appears in the table below.
-                  </p>
-                )}
+              </div>
+
+              {/* ── Subject columns strip ──────────────────────────────── */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wide">
+                    Subject Columns
+                  </Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-7 rounded-full gap-1 text-xs bg-amber-500 hover:bg-amber-600 text-white"
+                    onClick={addSubjectCol}
+                  >
+                    <Plus className="h-3.5 w-3.5" />Add Subject
+                  </Button>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {bulkSubjectCols.map((col, idx) => (
+                    <div
+                      key={col.id}
+                      className="flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 pl-3 pr-1.5 py-1"
+                    >
+                      <span className="text-xs text-amber-600 font-medium shrink-0">
+                        #{idx + 1}
+                      </span>
+                      <Input
+                        value={col.subject}
+                        onChange={(e) => updateSubjectColName(col.id, e.target.value)}
+                        placeholder="Subject name"
+                        className="h-6 w-36 rounded-full border-amber-300 bg-white text-xs px-2 focus-visible:ring-amber-400"
+                      />
+                      {bulkSubjectCols.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeSubjectCol(col.id)}
+                          className="flex items-center justify-center h-5 w-5 rounded-full text-amber-400 hover:bg-amber-200 hover:text-amber-700 transition-colors"
+                          title="Remove this subject column"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -1155,62 +1263,93 @@ export default function StudentManagementContent() {
             </p>
 
             {/* ── Per-student marks table ───────────────────────────────── */}
-            <div className="rounded-xl border border-border overflow-hidden">
+            <div className="rounded-xl border border-border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-slate-900 hover:bg-slate-900">
-                    <TableHead className="text-white">Name</TableHead>
+                    <TableHead className="text-white sticky left-0 bg-slate-900 z-10">Name</TableHead>
                     <TableHead className="text-white">Std</TableHead>
                     <TableHead className="text-white">Board</TableHead>
-                    <TableHead className="text-white w-36">Marks Obtained</TableHead>
+                    {bulkSubjectCols.map((col, idx) => (
+                      <TableHead key={col.id} className="text-white min-w-[9rem]">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-amber-300 text-xs font-normal">#{idx + 1}</span>
+                          <span className="truncate max-w-[8rem]" title={col.subject || `Subject ${idx + 1}`}>
+                            {col.subject || <span className="opacity-50 italic">Subject {idx + 1}</span>}
+                          </span>
+                        </div>
+                      </TableHead>
+                    ))}
                     {sharedTotalNum !== null && (
-                      <TableHead className="text-white w-20">%</TableHead>
+                      <TableHead className="text-white text-xs">Avg %</TableHead>
                     )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredStudents.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={sharedTotalNum !== null ? 5 : 4} className="text-center py-8 text-muted-foreground text-sm">
+                      <TableCell
+                        colSpan={3 + bulkSubjectCols.length + (sharedTotalNum !== null ? 1 : 0)}
+                        className="text-center py-8 text-muted-foreground text-sm"
+                      >
                         No students match current filters.
                       </TableCell>
                     </TableRow>
                   ) : (
                     filteredStudents.map((student) => {
-                      const marksVal = bulkMarks[student.id] ?? "";
-                      const marksNum = Number(marksVal);
-                      const showPct = sharedTotalNum !== null && marksVal !== "" && !Number.isNaN(marksNum);
-                      const pct = showPct ? (marksNum / sharedTotalNum!) * 100 : null;
-                      const exceedsTotal = showPct && marksNum > sharedTotalNum!;
+                      // Compute average % across filled cols (if sharedTotal set)
+                      let avgPct: number | null = null;
+                      if (sharedTotalNum !== null) {
+                        const filledVals = bulkSubjectCols
+                          .map((c) => getBulkMark(student.id, c.id))
+                          .filter((v) => v.trim() !== "" && !Number.isNaN(Number(v)))
+                          .map(Number);
+                        if (filledVals.length > 0) {
+                          avgPct = (filledVals.reduce((a, b) => a + b, 0) / filledVals.length / sharedTotalNum) * 100;
+                        }
+                      }
 
                       return (
                         <TableRow key={student.id}>
-                          <TableCell className="font-medium">{student.name}</TableCell>
+                          <TableCell className="font-medium sticky left-0 bg-background z-10">
+                            {student.name}
+                          </TableCell>
                           <TableCell>{student.standard}</TableCell>
                           <TableCell>{student.board}</TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              min={0}
-                              placeholder="—"
-                              value={marksVal}
-                              onChange={(e) =>
-                                setBulkMarks((prev) => ({ ...prev, [student.id]: e.target.value }))
-                              }
-                              className="h-8 w-28 rounded-full text-sm"
-                            />
-                          </TableCell>
+
+                          {bulkSubjectCols.map((col) => {
+                            const marksVal = getBulkMark(student.id, col.id);
+                            const marksNum = Number(marksVal);
+                            const exceedsTotal = sharedTotalNum !== null && marksVal !== "" && !Number.isNaN(marksNum) && marksNum > sharedTotalNum;
+
+                            return (
+                              <TableCell key={col.id}>
+                                <div className="flex flex-col gap-0.5">
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    placeholder="—"
+                                    value={marksVal}
+                                    onChange={(e) => setBulkMark(student.id, col.id, e.target.value)}
+                                    className={`h-8 w-28 rounded-full text-sm ${exceedsTotal ? "border-red-400 focus-visible:ring-red-400" : ""}`}
+                                  />
+                                  {exceedsTotal && (
+                                    <span className="text-[10px] text-red-500 font-medium pl-2">⚠ over {sharedTotalNum}</span>
+                                  )}
+                                </div>
+                              </TableCell>
+                            );
+                          })}
+
                           {sharedTotalNum !== null && (
                             <TableCell>
-                              {marksVal === "" ? (
+                              {avgPct === null ? (
                                 <span className="text-xs text-muted-foreground">—</span>
-                              ) : exceedsTotal ? (
-                                <span className="text-xs font-semibold text-red-500">⚠ over</span>
-                              ) : pct !== null ? (
-                                <span className={`text-xs font-semibold ${pct >= 75 ? "text-emerald-600" : pct >= 50 ? "text-amber-600" : "text-red-500"}`}>
-                                  {pct.toFixed(0)}%
+                              ) : (
+                                <span className={`text-xs font-semibold ${avgPct >= 75 ? "text-emerald-600" : avgPct >= 50 ? "text-amber-600" : "text-red-500"}`}>
+                                  {avgPct.toFixed(0)}%
                                 </span>
-                              ) : null}
+                              )}
                             </TableCell>
                           )}
                         </TableRow>
@@ -1241,9 +1380,7 @@ export default function StudentManagementContent() {
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving…</>
               ) : (
                 <><ClipboardList className="h-4 w-4 mr-2" />
-                  Save {Object.values(bulkMarks).filter((v) => v.trim() !== "").length > 0
-                    ? `${Object.values(bulkMarks).filter((v) => v.trim() !== "").length} Marks`
-                    : "Marks"}
+                  Save {totalFilledMarks > 0 ? `${totalFilledMarks} Mark${totalFilledMarks !== 1 ? "s" : ""}` : "Marks"}
                 </>
               )}
             </Button>
