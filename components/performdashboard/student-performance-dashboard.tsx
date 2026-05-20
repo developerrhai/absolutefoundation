@@ -15,6 +15,7 @@
   import { AssessmentHistory } from "../performdashboard/assessment-history";
   import { AddAttendanceDialog } from "../performdashboard/add-attendance-dialog";
   import { RankHistory, type RankHistoryRow } from "../performdashboard/rank-history";
+import { PerformanceFilters, type PerformanceFiltersValue } from "./performance-filters";
   import {
     studentsUniversalApi,
     teacherStudentAssessmentsApi,
@@ -330,8 +331,25 @@
     const [selectedStudentId, setSelectedStudentId] = useState<number | null>(() =>
       Number.isFinite(preferredStudentId) ? preferredStudentId : null
     );
-    const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+    // const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
     const [historyRows, setHistoryRows] = useState<AssessmentRow[]>([]);
+    const [filters, setFilters] = useState<PerformanceFiltersValue>({
+      examination: "",
+      subject: "",
+      dateFrom: "",
+      dateTo: "",
+    });
+
+    const [attendanceExtras, setAttendanceExtras] = useState({
+      attendance: 0,
+      attendanceChange: 0,
+    });
+
+    const [rankExtras, setRankExtras] = useState({
+      classRank: 0,
+      totalStudents: 1,
+      rankChange: 0,
+    });
     const [rankHistoryRows, setRankHistoryRows] = useState<RankHistoryRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [studentLoading, setStudentLoading] = useState(false);
@@ -368,7 +386,7 @@
             const queryMatch = allStudents.find((s) => s.id === preferredStudentId);
             setSelectedStudentId(queryMatch ? queryMatch.id : allStudents[0].id);
           } else {
-            setDashboardData(null);
+            // setDashboardData(null);
           }
 
         } catch (e: any) { setError(e?.message || "Failed to load students"); }
@@ -385,6 +403,12 @@
 
     const handleStudentChange = (id: number) => {
       setSelectedStudentId(id);
+      setFilters({
+        examination: "",
+        subject: "",
+        dateFrom: "",
+        dateTo: "",
+      });
       router.replace(`/teacherdashboard/performanceanalysis?studentId=${id}`);
     };
 
@@ -445,15 +469,25 @@
           }))
         );
 
-        const attendanceExtras = parseAttendanceExtras(attendanceList);
-        const rankExtras = parseRankExtras(rankList, students.length);
+        const attendanceExtrasParsed = parseAttendanceExtras(attendanceList);
+        const rankExtrasParsed = parseRankExtras(rankList, students.length);
 
-        const built = buildDashboardData(selectedStudent, rows, {
-          totalStudents: rankExtras.totalStudents ?? students.length,
-          ...rankExtras,
-          ...attendanceExtras,
+        setAttendanceExtras({
+          attendance: attendanceExtrasParsed.attendance ?? 0,
+          attendanceChange: attendanceExtrasParsed.attendanceChange ?? 0,
         });
-        setDashboardData(built);
+        setRankExtras({
+          classRank: rankExtrasParsed.classRank ?? 0,
+          totalStudents: rankExtrasParsed.totalStudents ?? students.length,
+          rankChange: rankExtrasParsed.rankChange ?? 0,
+        });
+
+        // const built = buildDashboardData(selectedStudent, rows, {
+        //   totalStudents: rankExtrasParsed.totalStudents ?? students.length,
+        //   ...rankExtrasParsed,
+        //   ...attendanceExtrasParsed,
+        // });
+        // setDashboardData(built);
 
         if (!rankList.length && rows.length > 0) {
           try {
@@ -476,13 +510,18 @@
               }))
             );
             const updatedRank = parseRankExtras(refreshedRanks, students.length);
-            setDashboardData(
-              buildDashboardData(selectedStudent, rows, {
-                totalStudents: updatedRank.totalStudents ?? students.length,
-                ...updatedRank,
-                ...attendanceExtras,
-              })
-            );
+            setRankExtras({
+              classRank: updatedRank.classRank ?? 0,
+              totalStudents: updatedRank.totalStudents ?? students.length,
+              rankChange: updatedRank.rankChange ?? 0,
+            });
+            // setDashboardData(
+            //   buildDashboardData(selectedStudent, rows, {
+            //     totalStudents: updatedRank.totalStudents ?? students.length,
+            //     ...updatedRank,
+            //     ...attendanceExtrasParsed,
+            //   })
+            // );
           } catch {
             /* snapshot optional */
           }
@@ -500,9 +539,33 @@
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedStudent?.id, students.length]);
 
+    const filteredHistoryRows = useMemo(() => {
+      return historyRows.filter((row) => {
+        if (filters.examination && row.examination !== filters.examination) {
+          return false;
+        }
+        if (filters.subject && row.subject !== filters.subject) {
+          return false;
+        }
+        if (filters.dateFrom && row.exam_date < filters.dateFrom) {
+          return false;
+        }
+        if (filters.dateTo && row.exam_date > filters.dateTo) {
+          return false;
+        }
+        return true;
+      });
+    }, [historyRows, filters]);
+
     const displayData = useMemo(() => {
-      if (dashboardData) return dashboardData;
-      if (selectedStudent) return emptyDashboard(selectedStudent);
+      // if (dashboardData) return dashboardData;
+      if (selectedStudent) {
+        return buildDashboardData(selectedStudent, filteredHistoryRows, {
+          totalStudents: rankExtras.totalStudents ?? students.length,
+          ...rankExtras,
+          ...attendanceExtras,
+        });
+      }
       return emptyDashboard({
         id: 0,
         name: loading ? "Loading…" : "Select a student",
@@ -511,7 +574,7 @@
         board: "",
         location: "",
       });
-    }, [dashboardData, selectedStudent, loading]);
+    }, [selectedStudent, filteredHistoryRows, rankExtras, attendanceExtras, students.length, loading]);
 
     const insights = useMemo(() => {
       if (!displayData) {
@@ -819,6 +882,14 @@
               </div>
             </div>
 
+            <div className="mb-6">
+              <PerformanceFilters
+                assessmentRows={historyRows}
+                value={filters}
+                onChange={setFilters}
+              />
+            </div>
+
             <div className="mb-6 grid gap-6 lg:grid-cols-3">
               <div className="lg:col-span-1"><PerformanceChart data={displayData!.performanceData} /></div>
               <div className="lg:col-span-1">
@@ -829,7 +900,7 @@
 
             <DetailedAnalysis subjects={displayData!.subjects} />
             <div className="mt-6">
-              <AssessmentHistory rows={historyRows} loading={studentLoading} />
+              <AssessmentHistory rows={filteredHistoryRows} loading={studentLoading} />
             </div>
             <div className="mt-6">
               <RankHistory rows={rankHistoryRows} loading={studentLoading} />
