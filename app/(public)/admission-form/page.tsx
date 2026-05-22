@@ -62,7 +62,7 @@ export default function AdmissionFormPage() {
   }
 
   const validate = () => {
-    const required: (keyof FormData)[] = ["studentName","studentPhone","email","fatherName","fatherPhone","father_occupation","standard","adhar_number","profile_img","address","admission_year"]
+    const required: (keyof FormData)[] = ["studentName","studentPhone","email","fatherName","fatherPhone","father_occupation","standard","address","admission_year"]
     if (isSenior) required.push("course")
     const allTouched: Partial<Record<keyof FormData, boolean>> = {}
     required.forEach(k => { allTouched[k] = true })
