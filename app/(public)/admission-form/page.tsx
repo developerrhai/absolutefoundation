@@ -132,7 +132,7 @@ export default function AdmissionFormPage() {
               Our team will call you at <span className="text-gray-600 font-medium">{form.studentPhone}</span> shortly.
             </p>
             <div className="bg-blue-50 rounded-2xl p-4 text-sm text-blue-700 font-medium">
-              DNYANSAGAR CLASSESS
+              Absolute Foundation 
             </div>
             <button
               onClick={() => { setForm(initial); setTouched({}); setSubmitted(false) }}

@@ -32,7 +32,7 @@ export function DashboardSidebar() {
           <Sparkles className="h-5 w-5 text-primary-foreground" />
         </div>
         <div>
-          <div className="font-semibold tracking-tight">DNYANSAGAR CLASS</div>
+          <div className="font-semibold tracking-tight">Absolute Foundation</div>
           <div className="text-xs text-sidebar-foreground/60">Study smarter</div>
         </div>
       </div>

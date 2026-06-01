@@ -77,7 +77,7 @@ export function AppointmentsContent() {
 
   const sendWhatsApp = (a: Appointment) => {
     const num = a.whatsapp.replace(/\D/g,"")
-    const msg = `Hello ${a.name},\n\nYour appointment at DNYANSAGAR CLASSESS:\nDate: ${a.appointment_date?.split("T")[0]}\nTime: ${a.appointment_time?.slice(0,5)}\nLocation: ${a.location}\n\nPlease confirm.\n\nThank you,\nDNYANSAGAR CLASSESS`
+    const msg = `Hello ${a.name},\n\nYour appointment at Absolute Foundation:\nDate: ${a.appointment_date?.split("T")[0]}\nTime: ${a.appointment_time?.slice(0,5)}\nLocation: ${a.location}\n\nPlease confirm.\n\nThank you,\nAbsolute Foundation`
     window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`,"_blank")
   }
 

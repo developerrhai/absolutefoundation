@@ -72,7 +72,7 @@ export function Sidebar({
           "mt-2 text-amber-400 font-semibold text-sm text-center transition-all duration-300 overflow-hidden whitespace-nowrap",
           expanded || mobile ? "max-w-[140px] opacity-100" : "max-w-0 opacity-0"
         )}>
-         DNYANSAGAR CLASSESS
+         Absolute Foundation
         </span>
       </div>
 

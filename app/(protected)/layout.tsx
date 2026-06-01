@@ -3,7 +3,7 @@ import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Institute CRM Admin - DNYANSAGAR CLASSESS',
+  title: 'Institute CRM Admin - Absolute Foundation',
   description: 'Comprehensive CRM dashboard for managing students, teachers, inquiries, appointments, and finances',
   generator: 'v0.app',
   icons: {

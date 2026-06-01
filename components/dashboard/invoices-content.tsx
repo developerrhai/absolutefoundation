@@ -404,7 +404,7 @@ body{font-family:Arial,Helvetica,sans-serif;color:#333;margin:0}
 <div class="container">
 <div class="header">
 <div class="institute">
-<h2>DNYANSAGAR CLASSES</h2>
+<h2>Absolute Foundation</h2>
 <p>201/A, New Excelsior Building Opp. Crown Hotel, KHADKI Pune - 411003</p>
 <p>Phone no : 8862010906</p><p>State: Maharashtra</p>
 </div>
@@ -434,7 +434,7 @@ body{font-family:Arial,Helvetica,sans-serif;color:#333;margin:0}
 </div>
 </div>
 <div class="signature">
-<div>For : DNYANSAGAR CLASSES</div>
+<div>For : Absolute Foundation</div>
 <img src="${window.location.origin}/sign.jpeg" style="height:60px;margin:8px 0;display:block;margin-left:auto"/>
 <div class="auth">Authorized Signatory</div>
 </div>
@@ -475,7 +475,7 @@ body{font-family:Arial,Helvetica,sans-serif;margin:0;color:#333}
 <div class="container">
 <div class="header">
 <div class="institute">
-<h2>DNYANSAGAR CLASSES</h2>
+<h2>Absolute Foundation</h2>
 <p>201/A, New Excelsior Building Opp. Crown Hotel, KHADKI Pune - 411003</p>
 <p>Phone : 8862010906</p><p>State : Maharashtra</p>
 </div>
@@ -516,7 +516,7 @@ body{font-family:Arial,Helvetica,sans-serif;margin:0;color:#333}
 ${Number(inv?.amount).toLocaleString()} Rupees only<br/><br/>
 <b>Terms and Conditions</b><br/>
 FEES ONCE PAID WILL NOT BE REFUNDED IN ANY CASES<br/>
-Thank You!<br/>DNYANSAGAR CLASSES
+Thank You!<br/>ABSOLUTE FOUNDATION
 </div>
 <div class="right-summary">
 <table>
@@ -779,7 +779,7 @@ const handleWhatsAppShare = async (inv: Invoice) => {
         <!-- Header: institute info left, logo right -->
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
           <div>
-            <h2 style="margin:0;font-size:20px;letter-spacing:0.5px;">DNYANSAGAR CLASSES</h2>
+            <h2 style="margin:0;font-size:20px;letter-spacing:0.5px;">ABSOLUTE FOUNDATION</h2>
             <p style="margin:2px 0;font-size:13px;">201/A, New Excelsior Building Opp. Crown Hotel, KHADKI Pune - 411003</p>
             <p style="margin:2px 0;font-size:13px;">Phone no : 8862010906</p>
             <p style="margin:2px 0;font-size:13px;">State: Maharashtra</p>
@@ -838,7 +838,7 @@ const handleWhatsAppShare = async (inv: Invoice) => {
 
         <!-- Signature: right aligned, sign image above Authorized Signatory -->
         <div style="margin-top:70px;text-align:right;">
-          <div>For : DNYANSAGAR CLASSES</div>
+          <div>For : Absolute Foundation</div>
           <img src="${signBase64}" style="height:60px;margin:8px 0;display:block;margin-left:auto;" />
           <div style="font-weight:bold;">Authorized Signatory</div>
         </div>
@@ -1234,7 +1234,7 @@ const handleWhatsAppShare = async (inv: Invoice) => {
             return (
               <div className="space-y-3">
                 <div className="text-center pb-4 border-b">
-                  <h3 className="text-lg font-bold text-blue-600">DNYANSAGAR CLASSES</h3>
+                  <h3 className="text-lg font-bold text-blue-600">Absolute Foundation</h3>
                   <p className="text-muted-foreground">Invoice #INV{String(selected.id).padStart(3, "0")}</p>
                 </div>
                 {([
