@@ -109,82 +109,140 @@ import { PerformanceFilters, type PerformanceFiltersValue } from "./performance-
   //   }
   // }
 
-  async function sendWhatsAppViaAPI(
-    phone: string,
-    studentName: string,
-    className: string,
-    examination: string,
-    examDate: string,
-    marks: number,
-    totalMarks: number,
-    performance: string
-  ): Promise<{ success: boolean; message: string }> {
+  // async function sendWhatsAppViaAPI(
+  //   phone: string,
+  //   studentName: string,
+  //   className: string,
+  //   examination: string,
+  //   examDate: string,
+  //   marks: number,
+  //   totalMarks: number,
+  //   performance: string
+  // ): Promise<{ success: boolean; message: string }> {
 
-    try {
+  //   try {
 
-      // Clean phone number
-      let cleanedPhone = String(phone || "").replace(/\D/g, "");
+  //     // Clean phone number
+  //     let cleanedPhone = String(phone || "").replace(/\D/g, "");
 
-      // Add India code if missing
-      if (cleanedPhone.length === 10) {
-        cleanedPhone = `91${cleanedPhone}`;
-      }
+  //     // Add India code if missing
+  //     if (cleanedPhone.length === 10) {
+  //       cleanedPhone = `91${cleanedPhone}`;
+  //     }
 
-      // Validate
-      if (cleanedPhone.length < 12) {
-        return {
-          success: false,
-          message: `Invalid number: ${phone}`,
-        };
-      }
+  //     // Validate
+  //     if (cleanedPhone.length < 12) {
+  //       return {
+  //         success: false,
+  //         message: `Invalid number: ${phone}`,
+  //       };
+  //     }
 
-      console.log("📤 Sending WhatsApp to:", cleanedPhone);
+  //     console.log("📤 Sending WhatsApp to:", cleanedPhone);
 
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/whatsapp/send-report`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+  //     const res = await fetch(
+  //       `${process.env.NEXT_PUBLIC_API_URL}/whatsapp/send-report`,
+  //       {
+  //         method: "POST",
+  //         headers: {
+  //           "Content-Type": "application/json",
+  //         },
 
-          body: JSON.stringify({
-            phone: cleanedPhone,
-            studentName,
-            className,
-            examination,
-            examDate,
-            marks,
-            totalMarks,
-            performance,
-          }),
-        }
-      );
+  //         body: JSON.stringify({
+  //           phone: cleanedPhone,
+  //           studentName,
+  //           className,
+  //           examination,
+  //           examDate,
+  //           marks,
+  //           totalMarks,
+  //           performance,
+  //         }),
+  //       }
+  //     );
 
-      const json = await res.json();
+  //     const json = await res.json();
 
-      console.log("✅ WhatsApp API Response:", json);
+  //     console.log("✅ WhatsApp API Response:", json);
 
-      return {
-        success:
-          json.success === true ||
-          json.status === true ||
-          json.message?.toLowerCase().includes("sent"),
+  //     return {
+  //       success:
+  //         json.success === true ||
+  //         json.status === true ||
+  //         json.message?.toLowerCase().includes("sent"),
 
-        message: json.message || "Message processed",
-      };
+  //       message: json.message || "Message processed",
+  //     };
 
-    } catch (e: any) {
+  //   } catch (e: any) {
 
-      console.error("❌ WhatsApp Send Error:", e);
+  //     console.error("❌ WhatsApp Send Error:", e);
 
-      return {
-        success: false,
-        message: e?.message || "Network error",
-      };
+  //     return {
+  //       success: false,
+  //       message: e?.message || "Network error",
+  //     };
+  //   }
+  // }
+async function sendWhatsAppViaAPI(
+  phone: string,
+  studentName: string,
+  className: string,
+  examination: string,
+  examDate: string,
+  marks: number,
+  totalMarks: number,
+  performance: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    let cleanedPhone = String(phone || "").replace(/\D/g, "");
+    if (cleanedPhone.length === 10) {
+      cleanedPhone = `91${cleanedPhone}`;
     }
-  }
+    if (cleanedPhone.length < 12) {
+      return { success: false, message: `Invalid number: ${phone}` };
+    }
 
+    console.log("📤 Sending WhatsApp to:", cleanedPhone);
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/whatsapp/send-report`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: cleanedPhone,
+          templateName: "marks_weekly_update",
+          // {{1}} performance label, {{2}} student name, {{3}} class,
+          // {{4}} test name, {{5}} test date, {{6}} marks, {{7}} total
+          parameters: [
+            performance,        // {{1}} — shown in header: "📈 Excellent 🌟 - Weekly Test Report"
+            studentName,        // {{2}}
+            className,          // {{3}}
+            examination,        // {{4}}
+            examDate,           // {{5}}
+            String(marks),      // {{6}}
+            String(totalMarks), // {{7}}
+          ],
+        }),
+      }
+    );
+
+    const json = await res.json();
+    console.log("✅ WhatsApp API Response:", json);
+
+    return {
+      success:
+        json.success === true ||
+        json.status === true ||
+        json.message?.toLowerCase().includes("sent"),
+      message: json.message || "Message processed",
+    };
+  } catch (e: any) {
+    console.error("❌ WhatsApp Send Error:", e);
+    return { success: false, message: e?.message || "Network error" };
+  }
+}
 
   // ─── Report HTML builder ──────────────────────────────────────────────────────
 
