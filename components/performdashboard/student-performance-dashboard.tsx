@@ -209,17 +209,14 @@ async function sendWhatsAppViaAPI(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          phone: cleanedPhone,
-          templateName: "marks_weekly_update",
-          parameters: [
-            { type: "text", text: performance },        // {{1}} → "📈 Excellent 🌟 - Weekly Test Report"
-            { type: "text", text: studentName },        // {{2}} → Student Name
-            { type: "text", text: className },          // {{3}} → Class
-            { type: "text", text: examination },        // {{4}} → Test Name
-            { type: "text", text: examDate },           // {{5}} → Test Date
-            { type: "text", text: String(marks) },      // {{6}} → Marks Obtained
-            { type: "text", text: String(totalMarks) }, // {{7}} → Total Marks
-          ],
+          phone:       cleanedPhone,
+          studentName: studentName,
+          className:   className,
+          examination: examination,
+          examDate:    examDate,
+          marks:       marks,
+          totalMarks:  totalMarks,
+          performance: performance,
         }),
       }
     );
@@ -230,7 +227,7 @@ async function sendWhatsAppViaAPI(
     return {
       success:
         json.success === true ||
-        json.status === true ||
+        json.status  === true ||
         json.message?.toLowerCase().includes("sent"),
       message: json.message || "Message processed",
     };
