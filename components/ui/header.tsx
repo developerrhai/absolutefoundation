@@ -23,7 +23,7 @@ export const Header = () => {
 
                 <div className="flex flex-col gap-1 opacity-90">
                     <p className="text-sm md:text-base leading-relaxed max-w-sm">
-                        <span className="font-semibold mb-1">Address:</span> 201/A, New Excelsior Building Opp. Crown Hotel, KHADKI Pune - 411003
+                        <span className="font-semibold mb-1">Address:</span> Nemisha, 301, 3rd, Near, Saibaba Mandir Marg, Akurdi Gaothan, Dattawadi, Nigdi, Pimpri-Chinchwad, Maharashtra 411044
                         
                     </p>
 
