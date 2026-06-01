@@ -28,7 +28,7 @@ export const Header = () => {
                     </p>
 
                     <p className="text-sm md:text-base font-mono font pt-2 flex items-center justify-center md:justify-start gap-2">
-                        <span className="text-blue-200"><Phone /></span> 8459693282, 8862010906
+                        <span className="text-blue-200"><Phone /></span> 8446006688
                     </p>
                 </div>
             </div>
