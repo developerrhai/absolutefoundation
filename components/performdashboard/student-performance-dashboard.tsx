@@ -196,9 +196,7 @@ async function sendWhatsAppViaAPI(
 ): Promise<{ success: boolean; message: string }> {
   try {
     let cleanedPhone = String(phone || "").replace(/\D/g, "");
-    if (cleanedPhone.length === 10) {
-      cleanedPhone = `91${cleanedPhone}`;
-    }
+    if (cleanedPhone.length === 10) cleanedPhone = `91${cleanedPhone}`;
     if (cleanedPhone.length < 12) {
       return { success: false, message: `Invalid number: ${phone}` };
     }
@@ -213,16 +211,14 @@ async function sendWhatsAppViaAPI(
         body: JSON.stringify({
           phone: cleanedPhone,
           templateName: "marks_weekly_update",
-          // {{1}} performance label, {{2}} student name, {{3}} class,
-          // {{4}} test name, {{5}} test date, {{6}} marks, {{7}} total
           parameters: [
-            performance,        // {{1}} — shown in header: "📈 Excellent 🌟 - Weekly Test Report"
-            studentName,        // {{2}}
-            className,          // {{3}}
-            examination,        // {{4}}
-            examDate,           // {{5}}
-            String(marks),      // {{6}}
-            String(totalMarks), // {{7}}
+            { type: "text", text: performance },        // {{1}} → "📈 Excellent 🌟 - Weekly Test Report"
+            { type: "text", text: studentName },        // {{2}} → Student Name
+            { type: "text", text: className },          // {{3}} → Class
+            { type: "text", text: examination },        // {{4}} → Test Name
+            { type: "text", text: examDate },           // {{5}} → Test Date
+            { type: "text", text: String(marks) },      // {{6}} → Marks Obtained
+            { type: "text", text: String(totalMarks) }, // {{7}} → Total Marks
           ],
         }),
       }
