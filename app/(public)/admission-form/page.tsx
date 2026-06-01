@@ -27,15 +27,14 @@ interface FormData {
   course: string
   father_occupation: string
   adhar_number: string
-  profile_img: string
   address: string
   admission_year: string
 }
 
 const initial: FormData = {
-  studentName: "", studentPhone: "", adhar_number: "", profile_img:"", address: "",
+  studentName: "", studentPhone: "", adhar_number: "", address: "",
   fatherName: "", fatherPhone: "", father_occupation: "",
-  email: "",  standard: "", course: "", admission_year: ""
+  email: "", standard: "", course: "", admission_year: ""
 }
 
 export default function AdmissionFormPage() {
@@ -43,36 +42,21 @@ export default function AdmissionFormPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted]   = useState(false)
   const [error, setError]           = useState("")
-  const [touched, setTouched]       = useState<Partial<Record<keyof FormData, boolean>>>({})
 
   const isSenior = form.standard === "11th Standard" || form.standard === "12th Standard"
 
   const set = (key: keyof FormData, val: string) => {
     setForm(prev => ({ ...prev, [key]: val }))
-    setTouched(prev => ({ ...prev, [key]: true }))
     setError("")
   }
 
-  const fieldError = (key: keyof FormData) => {
-    if (!touched[key]) return ""
-    if (!form[key].trim()) return "This field is required"
-    if ((key === "studentPhone" || key === "fatherPhone") && !/^\d{10}$/.test(form[key].replace(/\s/g, "")))
-      return "Enter a valid 10-digit number"
-    return ""
-  }
-
   const validate = () => {
-    const required: (keyof FormData)[] = ["studentName","studentPhone","email","fatherName","fatherPhone","father_occupation","standard","address","admission_year"]
-    if (isSenior) required.push("course")
-    const allTouched: Partial<Record<keyof FormData, boolean>> = {}
-    required.forEach(k => { allTouched[k] = true })
-    setTouched(allTouched)
-    for (const k of required) {
-      if (!form[k].trim()) return "Please fill all required fields"
-    }
-    if (!/^\d{10}$/.test(form.studentPhone.replace(/\s/g,""))) return "Enter a valid student phone number"
-    if (!/^\S+@\S+\.\S+$/.test(form.email)) return "Enter a valid email"
-    if (!/^\d{10}$/.test(form.fatherPhone.replace(/\s/g,"")))  return "Enter a valid father phone number"
+    if (!/^\d{10}$/.test(form.studentPhone.replace(/\s/g,"")) && form.studentPhone.trim())
+      return "Enter a valid student phone number"
+    if (form.email.trim() && !/^\S+@\S+\.\S+$/.test(form.email))
+      return "Enter a valid email"
+    if (!/^\d{10}$/.test(form.fatherPhone.replace(/\s/g,"")) && form.fatherPhone.trim())
+      return "Enter a valid father phone number"
     return ""
   }
 
@@ -87,18 +71,17 @@ export default function AdmissionFormPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name:         form.studentName,
-          phone:        form.studentPhone,
-          father_name:  form.fatherName,
-          email:        form.email,
-          father_phone: form.fatherPhone,
+          name:              form.studentName,
+          phone:             form.studentPhone,
+          father_name:       form.fatherName,
+          email:             form.email,
+          father_phone:      form.fatherPhone,
           father_occupation: form.father_occupation,
-          adhar_number: form.adhar_number,
-          profile_img: form.profile_img,
-          address: form.address,
-          admission_year: form.admission_year,
-          standard:     form.standard,
-          course:       isSenior ? form.course : "",
+          adhar_number:      form.adhar_number,
+          address:           form.address,
+          admission_year:    form.admission_year,
+          standard:          form.standard,
+          course:            isSenior ? form.course : "",
         }),
       })
       const data = await res.json()
@@ -132,10 +115,10 @@ export default function AdmissionFormPage() {
               Our team will call you at <span className="text-gray-600 font-medium">{form.studentPhone}</span> shortly.
             </p>
             <div className="bg-blue-50 rounded-2xl p-4 text-sm text-blue-700 font-medium">
-              Absolute Foundation 
+              Absolute Foundation
             </div>
             <button
-              onClick={() => { setForm(initial); setTouched({}); setSubmitted(false) }}
+              onClick={() => { setForm(initial); setSubmitted(false) }}
               className="mt-6 text-sm text-gray-400 hover:text-gray-600 underline transition-colors"
             >
               Submit another form
@@ -150,7 +133,6 @@ export default function AdmissionFormPage() {
   return (
     <div className="min-h-screen bg-[#e8f4f8] flex items-center justify-center p-4 py-10">
       <div className="w-full max-w-[42rem]">
-
         <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
 
           <Header/>
@@ -171,7 +153,6 @@ export default function AdmissionFormPage() {
                 placeholder="Student Name"
                 value={form.studentName}
                 onChange={v => set("studentName", v)}
-                error={fieldError("studentName")}
                 icon={
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -184,7 +165,6 @@ export default function AdmissionFormPage() {
                 type="tel"
                 value={form.studentPhone}
                 onChange={v => set("studentPhone", v)}
-                error={fieldError("studentPhone")}
                 icon={
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -197,7 +177,6 @@ export default function AdmissionFormPage() {
                 type="email"
                 value={form.email}
                 onChange={v => set("email", v)}
-                error={fieldError("email")}
                 icon={
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -209,7 +188,6 @@ export default function AdmissionFormPage() {
                 placeholder="Aadhar Number"
                 value={form.adhar_number}
                 onChange={v => set("adhar_number", v)}
-                error={fieldError("adhar_number")}
                 icon={
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -223,7 +201,6 @@ export default function AdmissionFormPage() {
                 placeholder="Address"
                 value={form.address}
                 onChange={v => set("address", v)}
-                error={fieldError("address")}
                 icon={
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -233,13 +210,6 @@ export default function AdmissionFormPage() {
                   </svg>
                 }
               />
-
-              {/* ── Passport Photo Upload ── */}
-              <PassportPhotoUpload
-                value={form.profile_img}
-                onChange={v => set("profile_img", v)}
-                error={fieldError("profile_img")}
-              />
             </Section>
 
             {/* Parent Details */}
@@ -248,7 +218,6 @@ export default function AdmissionFormPage() {
                 placeholder="Parent Name"
                 value={form.fatherName}
                 onChange={v => set("fatherName", v)}
-                error={fieldError("fatherName")}
                 icon={
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -261,7 +230,6 @@ export default function AdmissionFormPage() {
                 type="tel"
                 value={form.fatherPhone}
                 onChange={v => set("fatherPhone", v)}
-                error={fieldError("fatherPhone")}
                 icon={
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -273,7 +241,6 @@ export default function AdmissionFormPage() {
                 placeholder="Parent Occupation"
                 value={form.father_occupation}
                 onChange={v => set("father_occupation", v)}
-                error={fieldError("father_occupation")}
                 icon={
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -290,7 +257,6 @@ export default function AdmissionFormPage() {
                 value={form.standard}
                 onChange={v => { set("standard", v); set("course", "") }}
                 options={STANDARDS}
-                error={fieldError("standard")}
                 icon={
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -305,7 +271,6 @@ export default function AdmissionFormPage() {
                   value={form.course}
                   onChange={v => set("course", v)}
                   options={COURSES}
-                  error={fieldError("course")}
                   icon={
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -319,7 +284,6 @@ export default function AdmissionFormPage() {
                 placeholder="Admission Year"
                 value={form.admission_year}
                 onChange={v => set("admission_year", v)}
-                error={fieldError("admission_year")}
                 icon={
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -430,88 +394,6 @@ function InputField({
           className="flex-1 bg-transparent text-gray-700 text-sm placeholder-gray-400 outline-none"
         />
       </div>
-      {error && <p className="text-red-500 text-xs mt-1 ml-1">{error}</p>}
-    </div>
-  )
-}
-
-/* ── Passport Photo Upload ──────────────────────────── */
-function PassportPhotoUpload({
-  value,
-  onChange,
-  error,
-}: {
-  value: string
-  onChange: (v: string) => void
-  error?: string
-}) {
-  const inputRef = React.useRef<HTMLInputElement>(null)
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onloadend = () => onChange(reader.result as string)
-    reader.readAsDataURL(file)
-  }
-
-  return (
-    <div>
-      <div
-        className={`flex items-center gap-3 px-4 py-3 rounded-xl border bg-white transition-all duration-200 ${
-          error
-            ? "border-red-300 bg-red-50/30"
-            : "border-gray-200 hover:border-blue-300 focus-within:border-[#0d6efd] focus-within:ring-3 focus-within:ring-[#0d6efd]/10"
-        }`}
-      >
-        {/* Camera icon */}
-        <span className="text-gray-400 shrink-0">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        </span>
-
-        {/* Label */}
-        <span className="flex-1 text-sm truncate">
-          {value
-            ? <span className="text-gray-700 font-medium">Photo selected ✓</span>
-            : <span className="text-gray-400">Upload Passport Size Photo <span className="text-xs text-red-400 ml-1">
-      (Max 1 MB)
-    </span></span>
-          }
-        </span>
-
-        {/* Thumbnail preview */}
-        {value && (
-          <img
-            src={value}
-            alt="Passport preview"
-            className="w-9 h-9 rounded-lg object-cover border border-gray-200 shrink-0"
-          />
-        )}
-
-        {/* Hidden file input */}
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleFile}
-        />
-
-        {/* Styled trigger button */}
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className="shrink-0 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#0d6efd] to-[#0dcaf0] text-white text-xs font-semibold shadow-sm hover:shadow-blue-200 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-150"
-        >
-          {value ? "Change" : "Upload"}
-        </button>
-      </div>
-
       {error && <p className="text-red-500 text-xs mt-1 ml-1">{error}</p>}
     </div>
   )
