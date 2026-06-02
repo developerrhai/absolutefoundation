@@ -184,84 +184,16 @@ import { PerformanceFilters, type PerformanceFiltersValue } from "./performance-
   //     };
   //   }
   // }
-// async function sendWhatsAppViaAPI(
-//   phone: string,
-//   studentName: string,
-//   className: string,
-//   examination: string,
-//   examDate: string,
-//   marks: number,
-//   totalMarks: number,
-//   performance: string
-// ): Promise<{ success: boolean; message: string }> {
-//   try {
-//     let cleanedPhone = String(phone || "").replace(/\D/g, "");
-//     if (cleanedPhone.length === 10) cleanedPhone = `91${cleanedPhone}`;
-//     if (cleanedPhone.length < 12) {
-//       return { success: false, message: `Invalid number: ${phone}` };
-//     }
-
-//     console.log("📤 Sending WhatsApp to:", cleanedPhone);
-
-//     const res = await fetch(
-//       `${process.env.NEXT_PUBLIC_API_URL}/whatsapp/send-report`,
-//       {
-//         method: "POST",
-//         headers: { "Content-Type": "application/json" },
-//         body: JSON.stringify({
-//           phone:       cleanedPhone,
-//           studentName: studentName,
-//           className:   className,
-//           examination: examination,
-//           examDate:    examDate,
-//           marks:       marks,
-//           totalMarks:  totalMarks,
-//           performance: performance,
-//         }),
-//       }
-//     );
-
-//     const json = await res.json();
-//     console.log("✅ WhatsApp API Response:", json);
-
-//     return {
-//       success:
-//         json.success === true ||
-//         json.status  === true ||
-//         json.message?.toLowerCase().includes("sent"),
-//       message: json.message || "Message processed",
-//     };
-//   } catch (e: any) {
-//     console.error("❌ WhatsApp Send Error:", e);
-//     return { success: false, message: e?.message || "Network error" };
-//   }
-// }
-
-
-
-// 1. Define the type structure
-interface SendReportParams {
-  phone: string;
-  studentName: string;
-  className: string;
-  examination: string;
-  examDate: string;
-  marks: number;
-  totalMarks: number;
-  performance: string;
-}
-
-// 2. Wrap parameters with curly braces {} to destructure them
-async function sendWhatsAppViaAPI({
-  phone,
-  studentName,
-  className,
-  examination,
-  examDate,
-  marks,
-  totalMarks,
-  performance
-}: SendReportParams): Promise<{ success: boolean; message: string }> {
+async function sendWhatsAppViaAPI(
+  phone: string,
+  studentName: string,
+  className: string,
+  examination: string,
+  examDate: string,
+  marks: number,
+  totalMarks: number,
+  performance: string
+): Promise<{ success: boolean; message: string }> {
   try {
     let cleanedPhone = String(phone || "").replace(/\D/g, "");
     if (cleanedPhone.length === 10) cleanedPhone = `91${cleanedPhone}`;
