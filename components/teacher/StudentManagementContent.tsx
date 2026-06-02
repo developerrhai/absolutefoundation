@@ -1263,7 +1263,6 @@ export default function StudentManagementContent() {
             </p>
 
             {/* ── Per-student marks table ───────────────────────────────── */}
-            {/* ── Per-student marks table ───────────────────────────────── */}
             <div className="rounded-xl border border-border overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -1271,8 +1270,6 @@ export default function StudentManagementContent() {
                     <TableHead className="text-white sticky left-0 bg-slate-900 z-10">Name</TableHead>
                     <TableHead className="text-white">Std</TableHead>
                     <TableHead className="text-white">Board</TableHead>
-                    {/* New Attendance Column Header */}
-                    <TableHead className="text-white text-center w-24">Attendance</TableHead>
                     {bulkSubjectCols.map((col, idx) => (
                       <TableHead key={col.id} className="text-white min-w-[9rem]">
                         <div className="flex flex-col gap-0.5">
@@ -1292,8 +1289,7 @@ export default function StudentManagementContent() {
                   {filteredStudents.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        {/* Added +1 to colSpan for the attendance column */}
-                        colSpan={4 + bulkSubjectCols.length + (sharedTotalNum !== null ? 1 : 0)}
+                        colSpan={3 + bulkSubjectCols.length + (sharedTotalNum !== null ? 1 : 0)}
                         className="text-center py-8 text-muted-foreground text-sm"
                       >
                         No students match current filters.
@@ -1313,9 +1309,6 @@ export default function StudentManagementContent() {
                         }
                       }
 
-                      // Assuming state logic: default to true (Present) if undefined
-                      const isPresent = studentAttendance[student.id] !== false;
-
                       return (
                         <TableRow key={student.id}>
                           <TableCell className="font-medium sticky left-0 bg-background z-10">
@@ -1323,21 +1316,6 @@ export default function StudentManagementContent() {
                           </TableCell>
                           <TableCell>{student.standard}</TableCell>
                           <TableCell>{student.board}</TableCell>
-
-                          {/* New Attendance Column Checkbox */}
-                          <TableCell className="text-center">
-                            <div className="flex flex-col items-center justify-center gap-1">
-                              <input
-                                type="checkbox"
-                                checked={isPresent}
-                                onChange={(e) => setStudentAttendance(student.id, e.target.checked)}
-                                className="h-4 w-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer"
-                              />
-                              <span className={`text-[10px] font-semibold uppercase tracking-wider ${isPresent ? "text-emerald-600" : "text-red-500"}`}>
-                                {isPresent ? "Present" : "Absent"}
-                              </span>
-                            </div>
-                          </TableCell>
 
                           {bulkSubjectCols.map((col) => {
                             const marksVal = getBulkMark(student.id, col.id);
@@ -1353,11 +1331,9 @@ export default function StudentManagementContent() {
                                     placeholder="—"
                                     value={marksVal}
                                     onChange={(e) => setBulkMark(student.id, col.id, e.target.value)}
-                                    {/* Optional: disable inputs if student is marked Absent */}
-                                    disabled={!isPresent}
-                                    className={`h-8 w-28 rounded-full text-sm ${!isPresent ? "bg-muted text-muted-foreground opacity-50" : ""} ${exceedsTotal ? "border-red-400 focus-visible:ring-red-400" : ""}`}
+                                    className={`h-8 w-28 rounded-full text-sm ${exceedsTotal ? "border-red-400 focus-visible:ring-red-400" : ""}`}
                                   />
-                                  {exceedsTotal && isPresent && (
+                                  {exceedsTotal && (
                                     <span className="text-[10px] text-red-500 font-medium pl-2">⚠ over {sharedTotalNum}</span>
                                   )}
                                 </div>
@@ -1367,7 +1343,7 @@ export default function StudentManagementContent() {
 
                           {sharedTotalNum !== null && (
                             <TableCell>
-                              {avgPct === null || !isPresent ? (
+                              {avgPct === null ? (
                                 <span className="text-xs text-muted-foreground">—</span>
                               ) : (
                                 <span className={`text-xs font-semibold ${avgPct >= 75 ? "text-emerald-600" : avgPct >= 50 ? "text-amber-600" : "text-red-500"}`}>
