@@ -21,6 +21,7 @@ import {
   ClipboardList,
   Plus,
   X,
+  CheckSquare,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/teacher/ui/input";
@@ -267,11 +268,15 @@ export default function StudentManagementContent() {
   });
 
   // Multi-subject columns — each col has its own subject label
-  // bulkMarks key: `${studentId}-${colId}`
   const [bulkSubjectCols, setBulkSubjectCols] = useState<SubjectCol[]>([
     { id: "col-0", subject: "" },
   ]);
   const [bulkMarks, setBulkMarks] = useState<Record<string, string>>({});
+
+  // ── Attendance state: key = studentId, value = true (present) | false (absent)
+  // Unset keys default to present (true)
+  const [bulkAttendance, setBulkAttendance] = useState<Record<number, boolean>>({});
+
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
 
@@ -289,8 +294,6 @@ export default function StudentManagementContent() {
     marks: number; examination: string; exam_date: string;
   }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // ── Bulk import ref ───────────────────────────────────────────────────────
   const bulkImportRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -370,11 +373,11 @@ export default function StudentManagementContent() {
         name: s.name,
         standard: s.standard,
         board: s.board,
+        attendance: bulkAttendance[s.id] === false ? "Absent" : "Present",
         examination: bulkCommon.examination || "",
         exam_date: bulkCommon.exam_date || new Date().toISOString().split("T")[0],
         total_marks: bulkCommon.total_marks || "",
       };
-      // Add a column per subject col
       for (const col of bulkSubjectCols) {
         base[`marks_${col.subject || col.id}`] = bulkMarks[`${s.id}-${col.id}`] ?? "";
       }
@@ -397,13 +400,20 @@ export default function StudentManagementContent() {
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
       const newMarks: Record<string, string> = { ...bulkMarks };
+      const newAttendance: Record<number, boolean> = { ...bulkAttendance };
       for (const row of rows) {
         const id = Number(row.student_id);
         if (!Number.isNaN(id) && row.marks !== "") {
           newMarks[`${id}-col-0`] = String(row.marks);
         }
+        // Parse attendance column if present in the Excel file
+        if (!Number.isNaN(id) && row.attendance !== undefined && row.attendance !== "") {
+          const att = String(row.attendance).trim().toLowerCase();
+          newAttendance[id] = att !== "absent" && att !== "0" && att !== "false";
+        }
       }
       setBulkMarks(newMarks);
+      setBulkAttendance(newAttendance);
       const first = rows[0];
       if (first) {
         setBulkCommon((p) => ({
@@ -437,9 +447,8 @@ export default function StudentManagementContent() {
   };
 
   const removeSubjectCol = (colId: string) => {
-    if (bulkSubjectCols.length === 1) return; // keep at least one
+    if (bulkSubjectCols.length === 1) return;
     setBulkSubjectCols((prev) => prev.filter((c) => c.id !== colId));
-    // Clean up marks for this col
     setBulkMarks((prev) => {
       const next = { ...prev };
       for (const key of Object.keys(next)) {
@@ -461,6 +470,34 @@ export default function StudentManagementContent() {
   const setBulkMark = (studentId: number, colId: string, value: string) => {
     setBulkMarks((prev) => ({ ...prev, [`${studentId}-${colId}`]: value }));
   };
+
+  // ── Attendance helpers ────────────────────────────────────────────────────
+  // Unset = present by default
+  const getAttendance = (studentId: number): boolean =>
+    bulkAttendance[studentId] !== false;
+
+  const toggleAttendance = (studentId: number) => {
+    setBulkAttendance((prev) => ({ ...prev, [studentId]: !getAttendance(studentId) }));
+  };
+
+  const markAllPresent = () => {
+    const next: Record<number, boolean> = {};
+    for (const s of filteredStudents) next[s.id] = true;
+    setBulkAttendance((prev) => ({ ...prev, ...next }));
+  };
+
+  const markAllAbsent = () => {
+    const next: Record<number, boolean> = {};
+    for (const s of filteredStudents) next[s.id] = false;
+    setBulkAttendance((prev) => ({ ...prev, ...next }));
+  };
+
+  // Live attendance counts
+  const attendanceCounts = useMemo(() => {
+    const present = filteredStudents.filter((s) => getAttendance(s.id)).length;
+    return { present, absent: filteredStudents.length - present };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredStudents, bulkAttendance]);
 
   // ── Import ────────────────────────────────────────────────────────────────
   const handleImportFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -672,22 +709,22 @@ export default function StudentManagementContent() {
     }
   };
 
-  // ── Bulk marks save — saves each subject col as a separate assessment ─────
+  // ── Bulk marks save — only saves marks for PRESENT students ──────────────
   const saveBulkMarks = async () => {
     if (!bulkCommon.examination || !bulkCommon.exam_date) {
       alert("Please fill Examination and Date first."); return;
     }
 
-    // Validate all cols have a subject name
     const colsWithoutSubject = bulkSubjectCols.filter((c) => !c.subject.trim());
     if (colsWithoutSubject.length > 0) {
       alert(`Please enter a subject name for all ${colsWithoutSubject.length > 1 ? "columns" : "column"}.`); return;
     }
 
-    // Collect all entries across cols
+    // Only include marks for PRESENT students
     const allEntries: { studentId: number; colId: string; subject: string; marks: number }[] = [];
     for (const col of bulkSubjectCols) {
       for (const student of filteredStudents) {
+        if (!getAttendance(student.id)) continue; // skip absent students
         const val = getBulkMark(student.id, col.id);
         if (val.trim() === "") continue;
         const m = Number(val);
@@ -696,7 +733,7 @@ export default function StudentManagementContent() {
       }
     }
 
-    if (allEntries.length === 0) { alert("Enter marks for at least one student."); return; }
+    if (allEntries.length === 0) { alert("Enter marks for at least one present student."); return; }
 
     const sharedTotal = bulkCommon.total_marks.trim() !== "" ? Number(bulkCommon.total_marks) : undefined;
     if (sharedTotal !== undefined && (Number.isNaN(sharedTotal) || sharedTotal < 0)) {
@@ -729,10 +766,8 @@ export default function StudentManagementContent() {
       setBulkProgress({ done, total: allEntries.length });
     }
 
-    // Update local state — use last saved col's marks as displayed mark
     setStudents((prev) => prev.map((s) => {
       if (!updatedIds.has(s.id)) return s;
-      // Find last col with a mark for this student
       let lastMarks: number | undefined;
       let lastSubject = s.subject;
       for (const col of [...bulkSubjectCols].reverse()) {
@@ -752,6 +787,7 @@ export default function StudentManagementContent() {
     setBulkProgress(null);
     setBulkOpen(false);
     setBulkMarks({});
+    setBulkAttendance({});
     setBulkSubjectCols([{ id: "col-0", subject: "" }]);
     setBulkCommon({ examination: "", exam_date: new Date().toISOString().split("T")[0], total_marks: "" });
   };
@@ -775,13 +811,11 @@ export default function StudentManagementContent() {
     );
   };
 
-  // Derived: parsed shared total for live % in the bulk table
   const sharedTotalNum =
     bulkCommon.total_marks.trim() !== "" && !Number.isNaN(Number(bulkCommon.total_marks)) && Number(bulkCommon.total_marks) > 0
       ? Number(bulkCommon.total_marks)
       : null;
 
-  // Total count of filled marks across all cols
   const totalFilledMarks = useMemo(() => {
     return Object.values(bulkMarks).filter((v) => v.trim() !== "").length;
   }, [bulkMarks]);
@@ -815,6 +849,7 @@ export default function StudentManagementContent() {
             className="h-9 rounded-full gap-1.5 text-sm border-amber-400 text-amber-600 hover:bg-amber-50"
             onClick={() => {
               setBulkMarks({});
+              setBulkAttendance({});
               setBulkSubjectCols([{ id: "col-0", subject: "" }]);
               setBulkCommon({ examination: "", exam_date: new Date().toISOString().split("T")[0], total_marks: "" });
               setBulkProgress(null);
@@ -1137,13 +1172,11 @@ export default function StudentManagementContent() {
       <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
           <DialogHeader>
-            {/* Title row with Import / Export buttons */}
             <div className="flex items-center justify-between gap-2">
               <DialogTitle className="flex items-center gap-2">
                 <ClipboardList className="h-5 w-5 text-amber-500" />Bulk Add Marks
               </DialogTitle>
               <div className="flex items-center gap-2 pr-6">
-                {/* Hidden file input for bulk import */}
                 <input
                   ref={bulkImportRef}
                   type="file"
@@ -1177,7 +1210,6 @@ export default function StudentManagementContent() {
 
             {/* ── Common fields ─────────────────────────────────────────── */}
             <div className="rounded-xl bg-muted/50 p-4 space-y-3">
-              {/* Examination / Date / Total Marks */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="space-y-1">
                   <Label>Examination <span className="text-red-500">*</span></Label>
@@ -1257,9 +1289,46 @@ export default function StudentManagementContent() {
               </div>
             </div>
 
+            {/* ── Attendance summary bar ─────────────────────────────────── */}
+            <div className="flex items-center justify-between rounded-xl border border-border bg-muted/30 px-4 py-2.5">
+              <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-1.5">
+                  <CheckSquare className="h-4 w-4 text-emerald-500" />
+                  <span className="font-semibold text-emerald-700">{attendanceCounts.present}</span>
+                  <span className="text-muted-foreground">Present</span>
+                </div>
+                <div className="h-4 w-px bg-border" />
+                <div className="flex items-center gap-1.5">
+                  <X className="h-4 w-4 text-red-400" />
+                  <span className="font-semibold text-red-600">{attendanceCounts.absent}</span>
+                  <span className="text-muted-foreground">Absent</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 rounded-full text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50 gap-1"
+                  onClick={markAllPresent}
+                >
+                  <CheckSquare className="h-3 w-3" />All Present
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 rounded-full text-xs border-red-300 text-red-600 hover:bg-red-50 gap-1"
+                  onClick={markAllAbsent}
+                >
+                  <X className="h-3 w-3" />All Absent
+                </Button>
+              </div>
+            </div>
+
             <p className="text-xs text-muted-foreground px-1">
               Showing {filteredStudents.length} student{filteredStudents.length !== 1 ? "s" : ""} matching current filters.
-              Leave marks blank to skip a student.
+              Absent students will not have marks saved. Leave marks blank to skip a student.
             </p>
 
             {/* ── Per-student marks table ───────────────────────────────── */}
@@ -1270,6 +1339,13 @@ export default function StudentManagementContent() {
                     <TableHead className="text-white sticky left-0 bg-slate-900 z-10">Name</TableHead>
                     <TableHead className="text-white">Std</TableHead>
                     <TableHead className="text-white">Board</TableHead>
+                    {/* ── Attendance column header ── */}
+                    <TableHead className="text-white text-center min-w-[8rem]">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <CheckSquare className="h-3.5 w-3.5 text-emerald-400" />
+                        <span className="text-xs">Attendance</span>
+                      </div>
+                    </TableHead>
                     {bulkSubjectCols.map((col, idx) => (
                       <TableHead key={col.id} className="text-white min-w-[9rem]">
                         <div className="flex flex-col gap-0.5">
@@ -1289,7 +1365,7 @@ export default function StudentManagementContent() {
                   {filteredStudents.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={3 + bulkSubjectCols.length + (sharedTotalNum !== null ? 1 : 0)}
+                        colSpan={4 + bulkSubjectCols.length + (sharedTotalNum !== null ? 1 : 0)}
                         className="text-center py-8 text-muted-foreground text-sm"
                       >
                         No students match current filters.
@@ -1297,9 +1373,10 @@ export default function StudentManagementContent() {
                     </TableRow>
                   ) : (
                     filteredStudents.map((student) => {
-                      // Compute average % across filled cols (if sharedTotal set)
+                      const isPresent = getAttendance(student.id);
+
                       let avgPct: number | null = null;
-                      if (sharedTotalNum !== null) {
+                      if (sharedTotalNum !== null && isPresent) {
                         const filledVals = bulkSubjectCols
                           .map((c) => getBulkMark(student.id, c.id))
                           .filter((v) => v.trim() !== "" && !Number.isNaN(Number(v)))
@@ -1310,12 +1387,47 @@ export default function StudentManagementContent() {
                       }
 
                       return (
-                        <TableRow key={student.id}>
+                        <TableRow
+                          key={student.id}
+                          className={!isPresent ? "opacity-50 bg-red-50/40" : ""}
+                        >
                           <TableCell className="font-medium sticky left-0 bg-background z-10">
                             {student.name}
                           </TableCell>
                           <TableCell>{student.standard}</TableCell>
                           <TableCell>{student.board}</TableCell>
+
+                          {/* ── Attendance toggle button ── */}
+                          <TableCell className="text-center">
+                            <button
+                              type="button"
+                              onClick={() => toggleAttendance(student.id)}
+                              aria-pressed={isPresent}
+                              title={isPresent ? "Click to mark Absent" : "Click to mark Present"}
+                              className={[
+                                "inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-1.5",
+                                "text-xs font-semibold border transition-all duration-150 select-none cursor-pointer",
+                                isPresent
+                                  ? "bg-emerald-100 border-emerald-300 text-emerald-700 hover:bg-emerald-200"
+                                  : "bg-red-100 border-red-300 text-red-600 hover:bg-red-200",
+                              ].join(" ")}
+                            >
+                              {isPresent ? (
+                                <>
+                                  {/* native checkbox feel — checkmark SVG */}
+                                  <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M2 7l3.5 3.5L12 3" />
+                                  </svg>
+                                  Present
+                                </>
+                              ) : (
+                                <>
+                                  <X className="h-3 w-3 shrink-0" />
+                                  Absent
+                                </>
+                              )}
+                            </button>
+                          </TableCell>
 
                           {bulkSubjectCols.map((col) => {
                             const marksVal = getBulkMark(student.id, col.id);
@@ -1328,10 +1440,15 @@ export default function StudentManagementContent() {
                                   <Input
                                     type="number"
                                     min={0}
-                                    placeholder="—"
+                                    placeholder={isPresent ? "—" : "Absent"}
                                     value={marksVal}
+                                    disabled={!isPresent}
                                     onChange={(e) => setBulkMark(student.id, col.id, e.target.value)}
-                                    className={`h-8 w-28 rounded-full text-sm ${exceedsTotal ? "border-red-400 focus-visible:ring-red-400" : ""}`}
+                                    className={[
+                                      "h-8 w-28 rounded-full text-sm",
+                                      exceedsTotal ? "border-red-400 focus-visible:ring-red-400" : "",
+                                      !isPresent ? "cursor-not-allowed opacity-40" : "",
+                                    ].join(" ")}
                                   />
                                   {exceedsTotal && (
                                     <span className="text-[10px] text-red-500 font-medium pl-2">⚠ over {sharedTotalNum}</span>
@@ -1343,7 +1460,9 @@ export default function StudentManagementContent() {
 
                           {sharedTotalNum !== null && (
                             <TableCell>
-                              {avgPct === null ? (
+                              {!isPresent ? (
+                                <span className="text-xs text-muted-foreground italic">Absent</span>
+                              ) : avgPct === null ? (
                                 <span className="text-xs text-muted-foreground">—</span>
                               ) : (
                                 <span className={`text-xs font-semibold ${avgPct >= 75 ? "text-emerald-600" : avgPct >= 50 ? "text-amber-600" : "text-red-500"}`}>
