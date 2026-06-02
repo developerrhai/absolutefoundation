@@ -745,7 +745,11 @@ export default function StudentManagementContent() {
     }
 
     setBulkSaving(true);
-    setBulkProgress({ done: 0, total: allEntries.length });
+
+    // ── Phase 1: Save marks for present students ────────────────────────
+    const absentStudents = filteredStudents.filter((s) => !getAttendance(s.id));
+    const totalOps = allEntries.length + absentStudents.length;
+    setBulkProgress({ done: 0, total: totalOps });
     let done = 0;
     const updatedIds = new Set<number>();
 
@@ -763,7 +767,60 @@ export default function StudentManagementContent() {
         console.error(`Failed for student ${entry.studentId}:`, err);
       }
       done++;
-      setBulkProgress({ done, total: allEntries.length });
+      setBulkProgress({ done, total: totalOps });
+    }
+
+    // ── Phase 2: Handle absent students ─────────────────────────────────
+    // For each absent student: save attendance 0%, assessment marks=0, send WhatsApp
+    for (const student of absentStudents) {
+      try {
+        // Save attendance record (0%)
+        await studentAttendanceApi.createByStudent(student.id, {
+          date: bulkCommon.exam_date,
+          status: "absent",
+          attendance_percentage: 0,
+        });
+
+        // Save assessment with marks=0 for first subject column
+        const firstSubject = bulkSubjectCols[0]?.subject || "N/A";
+        await teacherStudentAssessmentsApi.createByStudent(student.id, {
+          subject: firstSubject,
+          marks: 0,
+          ...(sharedTotal !== undefined && { total_marks: sharedTotal }),
+          examination: bulkCommon.examination,
+          exam_date: bulkCommon.exam_date,
+        });
+
+        // Send absent WhatsApp notification
+        const phoneToUse = student.father_phone || student.phone;
+        if (phoneToUse) {
+          try {
+            const res = await fetch(
+              `${process.env.NEXT_PUBLIC_API_URL}/whatsapp/send-absent-report`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  phone: phoneToUse,
+                  studentName: student.name,
+                  className: student.standard || "N/A",
+                  subject: firstSubject,
+                  examination: bulkCommon.examination,
+                  examDate: bulkCommon.exam_date,
+                }),
+              }
+            );
+            const json = await res.json();
+            console.log(`📱 Absent WhatsApp → ${student.name}:`, json);
+          } catch (whatsAppErr) {
+            console.error(`❌ WhatsApp absent error for ${student.name}:`, whatsAppErr);
+          }
+        }
+      } catch (err) {
+        console.error(`Failed absent handling for student ${student.id}:`, err);
+      }
+      done++;
+      setBulkProgress({ done, total: totalOps });
     }
 
     setStudents((prev) => prev.map((s) => {
