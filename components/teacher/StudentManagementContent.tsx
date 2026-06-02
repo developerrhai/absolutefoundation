@@ -272,6 +272,7 @@ export default function StudentManagementContent() {
     { id: "col-0", subject: "" },
   ]);
   const [bulkMarks, setBulkMarks] = useState<Record<string, string>>({});
+  const [studentAttendance, setStudentAttendanceMap] = useState<Record<number, boolean>>({});
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
 
@@ -373,6 +374,7 @@ export default function StudentManagementContent() {
         examination: bulkCommon.examination || "",
         exam_date: bulkCommon.exam_date || new Date().toISOString().split("T")[0],
         total_marks: bulkCommon.total_marks || "",
+        attendance: studentAttendance[s.id] !== false ? "Present" : "Absent"
       };
       // Add a column per subject col
       for (const col of bulkSubjectCols) {
@@ -397,13 +399,20 @@ export default function StudentManagementContent() {
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
       const newMarks: Record<string, string> = { ...bulkMarks };
+      const newAttendance: Record<number, boolean> = { ...studentAttendance };
       for (const row of rows) {
         const id = Number(row.student_id);
-        if (!Number.isNaN(id) && row.marks !== "") {
-          newMarks[`${id}-col-0`] = String(row.marks);
+        if (!Number.isNaN(id)) {
+          if (row.marks !== "") {
+            newMarks[`${id}-col-0`] = String(row.marks);
+          }
+          if (row.attendance) {
+            newAttendance[id] = String(row.attendance).toLowerCase() === "present";
+          }
         }
       }
       setBulkMarks(newMarks);
+      setStudentAttendanceMap(newAttendance);
       const first = rows[0];
       if (first) {
         setBulkCommon((p) => ({
@@ -460,6 +469,20 @@ export default function StudentManagementContent() {
 
   const setBulkMark = (studentId: number, colId: string, value: string) => {
     setBulkMarks((prev) => ({ ...prev, [`${studentId}-${colId}`]: value }));
+  };
+
+  const setStudentAttendance = (studentId: number, isPresent: boolean) => {
+    setStudentAttendanceMap((prev) => ({ ...prev, [studentId]: isPresent }));
+    if (!isPresent) {
+      // Clean up marks state for this student if they are marked absent
+      setBulkMarks((prev) => {
+        const next = { ...prev };
+        for (const col of bulkSubjectCols) {
+          delete next[`${studentId}-${col.id}`];
+        }
+        return next;
+      });
+    }
   };
 
   // ── Import ────────────────────────────────────────────────────────────────
@@ -684,10 +707,12 @@ export default function StudentManagementContent() {
       alert(`Please enter a subject name for all ${colsWithoutSubject.length > 1 ? "columns" : "column"}.`); return;
     }
 
-    // Collect all entries across cols
+    // Collect all entries across cols (Only if student is Present)
     const allEntries: { studentId: number; colId: string; subject: string; marks: number }[] = [];
     for (const col of bulkSubjectCols) {
       for (const student of filteredStudents) {
+        if (studentAttendance[student.id] === false) continue; // Skip absent students
+
         const val = getBulkMark(student.id, col.id);
         if (val.trim() === "") continue;
         const m = Number(val);
@@ -696,7 +721,7 @@ export default function StudentManagementContent() {
       }
     }
 
-    if (allEntries.length === 0) { alert("Enter marks for at least one student."); return; }
+    if (allEntries.length === 0) { alert("Enter marks for at least one present student."); return; }
 
     const sharedTotal = bulkCommon.total_marks.trim() !== "" ? Number(bulkCommon.total_marks) : undefined;
     if (sharedTotal !== undefined && (Number.isNaN(sharedTotal) || sharedTotal < 0)) {
@@ -732,7 +757,6 @@ export default function StudentManagementContent() {
     // Update local state — use last saved col's marks as displayed mark
     setStudents((prev) => prev.map((s) => {
       if (!updatedIds.has(s.id)) return s;
-      // Find last col with a mark for this student
       let lastMarks: number | undefined;
       let lastSubject = s.subject;
       for (const col of [...bulkSubjectCols].reverse()) {
@@ -752,6 +776,7 @@ export default function StudentManagementContent() {
     setBulkProgress(null);
     setBulkOpen(false);
     setBulkMarks({});
+    setStudentAttendanceMap({});
     setBulkSubjectCols([{ id: "col-0", subject: "" }]);
     setBulkCommon({ examination: "", exam_date: new Date().toISOString().split("T")[0], total_marks: "" });
   };
@@ -815,576 +840,285 @@ export default function StudentManagementContent() {
             className="h-9 rounded-full gap-1.5 text-sm border-amber-400 text-amber-600 hover:bg-amber-50"
             onClick={() => {
               setBulkMarks({});
+              setStudentAttendanceMap({});
               setBulkSubjectCols([{ id: "col-0", subject: "" }]);
-              setBulkCommon({ examination: "", exam_date: new Date().toISOString().split("T")[0], total_marks: "" });
-              setBulkProgress(null);
               setBulkOpen(true);
             }}
           >
-            <ClipboardList className="h-4 w-4" />Bulk Marks
+            <ClipboardList className="h-4 w-4" />Bulk Add Marks
           </Button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-4">
-        <div className="relative md:col-span-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search by name or phone..." className="h-10 rounded-full pl-10" />
-        </div>
-        <Select value={standardFilter} onValueChange={setStandardFilter}>
-          <SelectTrigger className="h-10 rounded-full"><SelectValue placeholder="All Standards" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Standards</SelectItem>
-            {standards.map((s) => <SelectItem key={s} value={s}>Std {s}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={boardFilter} onValueChange={setBoardFilter}>
-          <SelectTrigger className="h-10 rounded-full"><SelectValue placeholder="All Boards" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Boards</SelectItem>
-            {boards.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={locationFilter} onValueChange={setLocationFilter}>
-          <SelectTrigger className="h-10 rounded-full"><SelectValue placeholder="All Locations" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Locations</SelectItem>
-            {locations.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Table */}
-      <div className="mt-5 overflow-hidden rounded-2xl border border-border">
-        {loading ? (
-          <div className="py-10 flex justify-center"><Loader2 className="h-7 w-7 animate-spin text-primary" /></div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-slate-900 hover:bg-slate-900">
-                <TableHead className="text-white">Name</TableHead>
-                <TableHead className="text-white">Phone</TableHead>
-                <TableHead className="text-white">Marks</TableHead>
-                <TableHead className="text-white">Std</TableHead>
-                <TableHead className="text-white">Board</TableHead>
-                <TableHead className="text-white">Location</TableHead>
-                <TableHead className="text-right text-white">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedStudents.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">No students found for selected filters.</TableCell></TableRow>
-              ) : (
-                paginatedStudents.map((student) => (
-                  <TableRow key={student.id}>
-                    <TableCell className="font-medium">{student.name}</TableCell>
-                    <TableCell>{student.phone}</TableCell>
-                    <TableCell>
-                      {student.marks !== undefined
-                        ? <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">{student.marks}</span>
-                        : "—"}
-                    </TableCell>
-                    <TableCell>{student.standard}</TableCell>
-                    <TableCell>{student.board}</TableCell>
-                    <TableCell>{student.location}</TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-2">
-                        <Button type="button" size="icon" className="h-9 w-9 rounded-full bg-cyan-500 text-white hover:bg-cyan-600" title="View" onClick={() => openView(student)}><Eye className="h-4 w-4" /></Button>
-                        <Button type="button" size="icon" className="h-9 w-9 rounded-full bg-teal-500 text-white hover:bg-teal-600" title="Edit" onClick={() => openEdit(student)}><Pencil className="h-4 w-4" /></Button>
-                        <Button type="button" size="icon" className="h-9 w-9 rounded-full bg-violet-500 text-white hover:bg-violet-600" title="Analyze" onClick={() => openPerformanceAnalysis(student)}><BarChart3 className="h-4 w-4" /></Button>
-                        <Button type="button" size="icon" className="h-9 w-9 rounded-full bg-red-500 text-white hover:bg-red-600" title="Delete" onClick={() => deleteStudent(student)} disabled={actionLoadingId === student.id}>
-                          {actionLoadingId === student.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        )}
-      </div>
-
-      {!loading && filteredStudents.length > 0 && (
-        <Pagination total={filteredStudents.length} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
-      )}
-
-      {/* ── View Dialog ─────────────────────────────────────────────────── */}
-      <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>Student Details</DialogTitle></DialogHeader>
-          {selectedStudent && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><span className="text-muted-foreground">Name:</span> {selectedStudent.name}</div>
-                <div><span className="text-muted-foreground">Phone:</span> {selectedStudent.phone}</div>
-                <div><span className="text-muted-foreground">Standard:</span> {selectedStudent.standard}</div>
-                <div><span className="text-muted-foreground">Board:</span> {selectedStudent.board}</div>
-                <div><span className="text-muted-foreground">Location:</span> {selectedStudent.location}</div>
+      {/* ── Bulk Add Marks Dialog ─────────────────────────────────────────── */}
+      <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+          <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+            <DialogHeader>
+              <div className="flex items-center justify-between gap-2">
+                <DialogTitle className="flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5 text-amber-500" />Bulk Add Marks
+                </DialogTitle>
+                <div className="flex items-center gap-2 pr-6">
+                  <input
+                    ref={bulkImportRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    className="hidden"
+                    onChange={handleBulkImportFile}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-8 rounded-full gap-1.5 text-xs border-amber-300 text-amber-700 hover:bg-amber-50"
+                    onClick={() => bulkImportRef.current?.click()}
+                    title="Import marks from Excel (.xlsx)"
+                  >
+                    <Upload className="h-3.5 w-3.5" />Import
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-8 rounded-full gap-1.5 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                    onClick={exportBulkTemplate}
+                    title="Export student list as Excel template"
+                  >
+                    <Download className="h-3.5 w-3.5" />Export
+                  </Button>
+                </div>
               </div>
-              <div className="rounded-xl border border-border overflow-hidden">
+            </DialogHeader>
+
+            <div className="space-y-4 flex-1 overflow-y-auto pr-1">
+              {/* Common fields */}
+              <div className="rounded-xl bg-muted/50 p-4 space-y-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="space-y-1">
+                    <Label>Examination <span className="text-red-500">*</span></Label>
+                    <Input
+                      value={bulkCommon.examination}
+                      onChange={(e) => setBulkCommon((p) => ({ ...p, examination: e.target.value }))}
+                      placeholder="e.g. Unit Test 1"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Date <span className="text-red-500">*</span></Label>
+                    <Input
+                      type="date"
+                      value={bulkCommon.exam_date}
+                      onChange={(e) => setBulkCommon((p) => ({ ...p, exam_date: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>
+                      Total Marks{" "}
+                      <span className="text-xs text-muted-foreground font-normal">(optional — all subjects)</span>
+                    </Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={bulkCommon.total_marks}
+                      onChange={(e) => setBulkCommon((p) => ({ ...p, total_marks: e.target.value }))}
+                      placeholder="e.g. 100"
+                    />
+                  </div>
+                </div>
+
+                {/* Subject columns strip */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">
+                      Subject Columns
+                    </Label>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 rounded-full gap-1 text-xs bg-amber-500 hover:bg-amber-600 text-white"
+                      onClick={addSubjectCol}
+                    >
+                      <Plus className="h-3.5 w-3.5" />Add Subject
+                    </Button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {bulkSubjectCols.map((col, idx) => (
+                      <div
+                        key={col.id}
+                        className="flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 pl-3 pr-1.5 py-1"
+                      >
+                        <span className="text-xs text-amber-600 font-medium shrink-0">
+                          #{idx + 1}
+                        </span>
+                        <Input
+                          value={col.subject}
+                          onChange={(e) => updateSubjectColName(col.id, e.target.value)}
+                          placeholder="Subject name"
+                          className="h-6 w-36 rounded-full border-amber-300 bg-white text-xs px-2 focus-visible:ring-amber-400"
+                        />
+                        {bulkSubjectCols.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeSubjectCol(col.id)}
+                            className="flex items-center justify-center h-5 w-5 rounded-full text-amber-400 hover:bg-amber-200 hover:text-amber-700 transition-colors"
+                            title="Remove this subject column"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground px-1">
+                Showing {filteredStudents.length} student{filteredStudents.length !== 1 ? "s" : ""} matching current filters.
+                Leave marks blank to skip a student. Unchecked students are marked Absent.
+              </p>
+
+              {/* ── Per-student marks table ───────────────────────────────── */}
+              <div className="rounded-xl border border-border overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Subject</TableHead><TableHead>Examination</TableHead>
-                      <TableHead>Marks</TableHead><TableHead>Total</TableHead><TableHead>Date</TableHead>
+                    <TableRow className="bg-slate-900 hover:bg-slate-900">
+                      <TableHead className="text-white sticky left-0 bg-slate-900 z-10">Name</TableHead>
+                      <TableHead className="text-white">Std</TableHead>
+                      <TableHead className="text-white">Board</TableHead>
+                      <TableHead className="text-white text-center w-24">Attendance</TableHead>
+                      {bulkSubjectCols.map((col, idx) => (
+                        <TableHead key={col.id} className="text-white min-w-[9rem]">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-amber-300 text-xs font-normal">#{idx + 1}</span>
+                            <span className="truncate max-w-[8rem]" title={col.subject || `Subject ${idx + 1}`}>
+                              {col.subject || <span className="opacity-50 italic">Subject {idx + 1}</span>}
+                            </span>
+                          </div>
+                        </TableHead>
+                      ))}
+                      {sharedTotalNum !== null && (
+                        <TableHead className="text-white text-xs">Avg %</TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {historyLoading ? (
-                      <TableRow><TableCell colSpan={5} className="text-center py-6"><Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" /></TableCell></TableRow>
-                    ) : historyRows.length === 0 ? (
-                      <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No assessment entries yet.</TableCell></TableRow>
+                    {filteredStudents.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={4 + bulkSubjectCols.length + (sharedTotalNum !== null ? 1 : 0)}
+                          className="text-center py-8 text-muted-foreground text-sm"
+                        >
+                          No students match current filters.
+                        </TableCell>
+                      </TableRow>
                     ) : (
-                      historyRows.map((row) => (
-                        <TableRow key={`${row.id || 0}-${row.exam_date}-${row.subject}`}>
-                          <TableCell>{row.subject}</TableCell>
-                          <TableCell>{row.examination}</TableCell>
-                          <TableCell>{row.marks}</TableCell>
-                          <TableCell>{row.total_marks ?? "—"}</TableCell>
-                          <TableCell>{row.exam_date ? String(row.exam_date).split("T")[0] : "—"}</TableCell>
-                        </TableRow>
-                      ))
+                      filteredStudents.map((student) => {
+                        const isPresent = studentAttendance[student.id] !== false;
+
+                        // Compute average % across filled cols (if sharedTotal set)
+                        let avgPct: number | null = null;
+                        if (sharedTotalNum !== null && isPresent) {
+                          const filledVals = bulkSubjectCols
+                            .map((c) => getBulkMark(student.id, c.id))
+                            .filter((v) => v.trim() !== "" && !Number.isNaN(Number(v)))
+                            .map(Number);
+                          if (filledVals.length > 0) {
+                            avgPct = (filledVals.reduce((a, b) => a + b, 0) / filledVals.length / sharedTotalNum) * 100;
+                          }
+                        }
+
+                        return (
+                          <TableRow key={student.id}>
+                            <TableCell className="font-medium sticky left-0 bg-background z-10">
+                              {student.name}
+                            </TableCell>
+                            <TableCell>{student.standard}</TableCell>
+                            <TableCell>{student.board}</TableCell>
+
+                            {/* Attendance Action Column */}
+                            <TableCell className="text-center">
+                              <div className="flex flex-col items-center justify-center gap-1">
+                                <input
+                                  type="checkbox"
+                                  checked={isPresent}
+                                  onChange={(e) => setStudentAttendance(student.id, e.target.checked)}
+                                  className="h-4 w-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer"
+                                />
+                                <span className={`text-[10px] font-semibold uppercase tracking-wider ${isPresent ? "text-emerald-600" : "text-red-500"}`}>
+                                  {isPresent ? "Present" : "Absent"}
+                                </span>
+                              </div>
+                            </TableCell>
+
+                            {bulkSubjectCols.map((col) => {
+                              const marksVal = getBulkMark(student.id, col.id);
+                              const marksNum = Number(marksVal);
+                              const exceedsTotal = sharedTotalNum !== null && marksVal !== "" && !Number.isNaN(marksNum) && marksNum > sharedTotalNum;
+
+                              return (
+                                <TableCell key={col.id}>
+                                  <div className="flex flex-col gap-0.5">
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      placeholder="—"
+                                      value={isPresent ? marksVal : ""}
+                                      onChange={(e) => setBulkMark(student.id, col.id, e.target.value)}
+                                      disabled={!isPresent}
+                                      className={`h-8 w-28 rounded-full text-sm ${!isPresent ? "bg-muted text-muted-foreground opacity-50 select-none" : ""} ${exceedsTotal ? "border-red-400 focus-visible:ring-red-400" : ""}`}
+                                    />
+                                    {exceedsTotal && isPresent && (
+                                      <span className="text-[10px] text-red-500 font-medium pl-2">⚠ over {sharedTotalNum}</span>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              );
+                            })}
+
+                            {sharedTotalNum !== null && (
+                              <TableCell>
+                                {avgPct === null ? (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                ) : (
+                                  <span className={`text-xs font-semibold ${avgPct >= 75 ? "text-emerald-600" : avgPct >= 50 ? "text-amber-600" : "text-red-500"}`}>
+                                    {avgPct.toFixed(0)}%
+                                  </span>
+                                )}
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        );
+                      })
                     )}
                   </TableBody>
                 </Table>
               </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
-      {/* ── Edit Dialog ─────────────────────────────────────────────────── */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Add Student Test</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-1">
-              <Label>Subject</Label>
-              <Input value={editForm.subject} onChange={(e) => setEditForm((p) => ({ ...p, subject: e.target.value }))} placeholder="e.g. Mathematics" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Marks Obtained</Label>
-                <Input type="number" min={0} value={editForm.marks} onChange={(e) => setEditForm((p) => ({ ...p, marks: e.target.value }))} placeholder="e.g. 87" />
-              </div>
-              <div className="space-y-1">
-                <Label>Total Marks <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
-                <Input type="number" min={0} value={editForm.total_marks} onChange={(e) => setEditForm((p) => ({ ...p, total_marks: e.target.value }))} placeholder="e.g. 100" />
-              </div>
-            </div>
-            {editForm.marks !== "" && editForm.total_marks !== "" &&
-              !Number.isNaN(Number(editForm.marks)) && !Number.isNaN(Number(editForm.total_marks)) &&
-              Number(editForm.total_marks) > 0 && (
-                <p className="text-xs text-muted-foreground -mt-2 px-1">
-                  {((Number(editForm.marks) / Number(editForm.total_marks)) * 100).toFixed(1)}% scored
-                  {Number(editForm.marks) > Number(editForm.total_marks) && (
-                    <span className="ml-2 text-red-500 font-medium">⚠ Marks exceed total</span>
-                  )}
-                </p>
+              {/* Progress bar */}
+              {bulkProgress && (
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Saving…</span><span>{bulkProgress.done} / {bulkProgress.total}</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full bg-amber-400 transition-all duration-300" style={{ width: `${(bulkProgress.done / bulkProgress.total) * 100}%` }} />
+                  </div>
+                </div>
               )}
-            <div className="space-y-1">
-              <Label>Examination</Label>
-              <Input value={editForm.examination} onChange={(e) => setEditForm((p) => ({ ...p, examination: e.target.value }))} placeholder="e.g. Unit Test 1" />
-            </div>
-            <div className="space-y-1">
-              <Label>Date</Label>
-              <Input type="date" value={editForm.exam_date} onChange={(e) => setEditForm((p) => ({ ...p, exam_date: e.target.value }))} />
-            </div>
-            <div className="rounded-xl border border-border overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Subject</TableHead><TableHead>Exam</TableHead>
-                    <TableHead>Marks</TableHead><TableHead>Total</TableHead><TableHead>Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {historyLoading ? (
-                    <TableRow><TableCell colSpan={5} className="text-center py-4"><Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" /></TableCell></TableRow>
-                  ) : historyRows.length === 0 ? (
-                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-4">No tests added yet.</TableCell></TableRow>
-                  ) : (
-                    historyRows.map((row) => (
-                      <TableRow key={`edit-${row.id || 0}-${row.exam_date}-${row.subject}`}>
-                        <TableCell>{row.subject}</TableCell>
-                        <TableCell>{row.examination}</TableCell>
-                        <TableCell>{row.marks}</TableCell>
-                        <TableCell>{row.total_marks ?? "—"}</TableCell>
-                        <TableCell>{row.exam_date ? String(row.exam_date).split("T")[0] : "—"}</TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-            <Button onClick={saveEdit} disabled={savingEdit}>
-              {savingEdit && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Add Test
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Import Dialog ────────────────────────────────────────────────── */}
-      <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Upload className="h-5 w-5" />Import</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 flex-1 overflow-y-auto pr-1">
-            <div className="rounded-lg bg-muted/60 p-3 text-sm text-muted-foreground space-y-1">
-              <p className="font-medium text-foreground">Supported formats: CSV, JSON &amp; Excel (.xlsx)</p>
-              <p><span className="font-medium text-foreground">Excel (bulk marks):</span> columns <code className="text-xs bg-background rounded px-1">student_id, marks, subject, examination, exam_date</code></p>
-              <p><span className="font-medium text-foreground">CSV / JSON (students):</span> columns <code className="text-xs bg-background rounded px-1">id, name, phone, standard, board, location …</code></p>
-            </div>
-            <div className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border p-8 cursor-pointer hover:bg-muted/40 transition-colors" onClick={() => fileInputRef.current?.click()}>
-              <div className="flex gap-3">
-                <FileText className="h-8 w-8 text-emerald-500" />
-                <FileJson className="h-8 w-8 text-blue-500" />
-                <svg className="h-8 w-8 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 21V9" /><path d="m6 13 2 2 4-4" />
-                </svg>
-              </div>
-              <p className="text-sm font-medium">Click to choose CSV, JSON or Excel file</p>
-              {importFile && <p className="text-xs text-muted-foreground font-medium">{importFile.name}</p>}
-              <input ref={fileInputRef} type="file" accept=".csv,.json,.xlsx,.xls" className="hidden" onChange={handleImportFileChange} />
-            </div>
-            {importError && <p className="text-sm text-red-500 rounded-lg bg-red-50 px-3 py-2 whitespace-pre-line">{importError}</p>}
-            {importMode === "marks" && xlsxMarksRows.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">Excel — Bulk Marks</span>
-                  <p className="text-sm font-medium">{xlsxMarksRows.length} row{xlsxMarksRows.length !== 1 ? "s" : ""} found</p>
-                </div>
-                <div className="rounded-xl border border-border overflow-auto max-h-56">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Student ID</TableHead><TableHead>Name</TableHead><TableHead>Subject</TableHead>
-                        <TableHead>Examination</TableHead><TableHead>Marks</TableHead><TableHead>Date</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {xlsxMarksRows.slice(0, 10).map((r, i) => (
-                        <TableRow key={i}>
-                          <TableCell>{r.student_id}</TableCell><TableCell>{r.studentName}</TableCell>
-                          <TableCell>{r.subject || "—"}</TableCell><TableCell>{r.examination || "—"}</TableCell>
-                          <TableCell><span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-700">{r.marks}</span></TableCell>
-                          <TableCell>{r.exam_date || "—"}</TableCell>
-                        </TableRow>
-                      ))}
-                      {xlsxMarksRows.length > 10 && (
-                        <TableRow><TableCell colSpan={6} className="text-center text-xs text-muted-foreground py-2">…and {xlsxMarksRows.length - 10} more</TableCell></TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-            )}
-            {importMode === "students" && importPreview.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Preview — {importPreview.length} student{importPreview.length !== 1 ? "s" : ""} found</p>
-                <div className="rounded-xl border border-border overflow-auto max-h-52">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead><TableHead>Phone</TableHead><TableHead>Std</TableHead>
-                        <TableHead>Board</TableHead><TableHead>Location</TableHead><TableHead>Marks</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {importPreview.slice(0, 10).map((s, i) => (
-                        <TableRow key={i}>
-                          <TableCell>{s.name || "—"}</TableCell><TableCell>{s.phone || "—"}</TableCell>
-                          <TableCell>{s.standard || "—"}</TableCell><TableCell>{s.board || "—"}</TableCell>
-                          <TableCell>{s.location || "—"}</TableCell><TableCell>{s.marks !== undefined ? s.marks : "—"}</TableCell>
-                        </TableRow>
-                      ))}
-                      {importPreview.length > 10 && (
-                        <TableRow><TableCell colSpan={6} className="text-center text-xs text-muted-foreground py-2">…and {importPreview.length - 10} more</TableCell></TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-            )}
-            {importProgress && (
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Saving marks…</span><span>{importProgress.done} / {importProgress.total}</span>
-                </div>
-                <div className="h-2 rounded-full bg-muted overflow-hidden">
-                  <div className="h-full bg-green-500 transition-all duration-300" style={{ width: `${(importProgress.done / importProgress.total) * 100}%` }} />
-                </div>
-              </div>
-            )}
-          </div>
-          <DialogFooter className="pt-2">
-            <Button variant="outline" onClick={() => setImportOpen(false)} disabled={importing}>Cancel</Button>
-            <Button onClick={confirmImport} disabled={(importMode === "marks" ? xlsxMarksRows.length === 0 : importPreview.length === 0) || importing}>
-              {importing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {importMode === "marks" ? `Save ${xlsxMarksRows.length} Mark${xlsxMarksRows.length !== 1 ? "s" : ""} to DB` : `Import ${importPreview.length > 0 ? `${importPreview.length} Students` : ""}`}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Bulk Marks Dialog ────────────────────────────────────────────── */}
-      <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
-            {/* Title row with Import / Export buttons */}
-            <div className="flex items-center justify-between gap-2">
-              <DialogTitle className="flex items-center gap-2">
-                <ClipboardList className="h-5 w-5 text-amber-500" />Bulk Add Marks
-              </DialogTitle>
-              <div className="flex items-center gap-2 pr-6">
-                {/* Hidden file input for bulk import */}
-                <input
-                  ref={bulkImportRef}
-                  type="file"
-                  accept=".xlsx,.xls"
-                  className="hidden"
-                  onChange={handleBulkImportFile}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-8 rounded-full gap-1.5 text-xs border-amber-300 text-amber-700 hover:bg-amber-50"
-                  onClick={() => bulkImportRef.current?.click()}
-                  title="Import marks from Excel (.xlsx)"
-                >
-                  <Upload className="h-3.5 w-3.5" />Import
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-8 rounded-full gap-1.5 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                  onClick={exportBulkTemplate}
-                  title="Export student list as Excel template"
-                >
-                  <Download className="h-3.5 w-3.5" />Export
-                </Button>
-              </div>
-            </div>
-          </DialogHeader>
-
-          <div className="space-y-4 flex-1 overflow-y-auto pr-1">
-
-            {/* ── Common fields ─────────────────────────────────────────── */}
-            <div className="rounded-xl bg-muted/50 p-4 space-y-3">
-              {/* Examination / Date / Total Marks */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div className="space-y-1">
-                  <Label>Examination <span className="text-red-500">*</span></Label>
-                  <Input
-                    value={bulkCommon.examination}
-                    onChange={(e) => setBulkCommon((p) => ({ ...p, examination: e.target.value }))}
-                    placeholder="e.g. Unit Test 1"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Date <span className="text-red-500">*</span></Label>
-                  <Input
-                    type="date"
-                    value={bulkCommon.exam_date}
-                    onChange={(e) => setBulkCommon((p) => ({ ...p, exam_date: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>
-                    Total Marks{" "}
-                    <span className="text-xs text-muted-foreground font-normal">(optional — all subjects)</span>
-                  </Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={bulkCommon.total_marks}
-                    onChange={(e) => setBulkCommon((p) => ({ ...p, total_marks: e.target.value }))}
-                    placeholder="e.g. 100"
-                  />
-                </div>
-              </div>
-
-              {/* ── Subject columns strip ──────────────────────────────── */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                    Subject Columns
-                  </Label>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-7 rounded-full gap-1 text-xs bg-amber-500 hover:bg-amber-600 text-white"
-                    onClick={addSubjectCol}
-                  >
-                    <Plus className="h-3.5 w-3.5" />Add Subject
-                  </Button>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {bulkSubjectCols.map((col, idx) => (
-                    <div
-                      key={col.id}
-                      className="flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 pl-3 pr-1.5 py-1"
-                    >
-                      <span className="text-xs text-amber-600 font-medium shrink-0">
-                        #{idx + 1}
-                      </span>
-                      <Input
-                        value={col.subject}
-                        onChange={(e) => updateSubjectColName(col.id, e.target.value)}
-                        placeholder="Subject name"
-                        className="h-6 w-36 rounded-full border-amber-300 bg-white text-xs px-2 focus-visible:ring-amber-400"
-                      />
-                      {bulkSubjectCols.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeSubjectCol(col.id)}
-                          className="flex items-center justify-center h-5 w-5 rounded-full text-amber-400 hover:bg-amber-200 hover:text-amber-700 transition-colors"
-                          title="Remove this subject column"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
 
-            <p className="text-xs text-muted-foreground px-1">
-              Showing {filteredStudents.length} student{filteredStudents.length !== 1 ? "s" : ""} matching current filters.
-              Leave marks blank to skip a student.
-            </p>
-
-            {/* ── Per-student marks table ───────────────────────────────── */}
-            <div className="rounded-xl border border-border overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-900 hover:bg-slate-900">
-                    <TableHead className="text-white sticky left-0 bg-slate-900 z-10">Name</TableHead>
-                    <TableHead className="text-white">Std</TableHead>
-                    <TableHead className="text-white">Board</TableHead>
-                    {bulkSubjectCols.map((col, idx) => (
-                      <TableHead key={col.id} className="text-white min-w-[9rem]">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-amber-300 text-xs font-normal">#{idx + 1}</span>
-                          <span className="truncate max-w-[8rem]" title={col.subject || `Subject ${idx + 1}`}>
-                            {col.subject || <span className="opacity-50 italic">Subject {idx + 1}</span>}
-                          </span>
-                        </div>
-                      </TableHead>
-                    ))}
-                    {sharedTotalNum !== null && (
-                      <TableHead className="text-white text-xs">Avg %</TableHead>
-                    )}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredStudents.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={3 + bulkSubjectCols.length + (sharedTotalNum !== null ? 1 : 0)}
-                        className="text-center py-8 text-muted-foreground text-sm"
-                      >
-                        No students match current filters.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredStudents.map((student) => {
-                      // Compute average % across filled cols (if sharedTotal set)
-                      let avgPct: number | null = null;
-                      if (sharedTotalNum !== null) {
-                        const filledVals = bulkSubjectCols
-                          .map((c) => getBulkMark(student.id, c.id))
-                          .filter((v) => v.trim() !== "" && !Number.isNaN(Number(v)))
-                          .map(Number);
-                        if (filledVals.length > 0) {
-                          avgPct = (filledVals.reduce((a, b) => a + b, 0) / filledVals.length / sharedTotalNum) * 100;
-                        }
-                      }
-
-                      return (
-                        <TableRow key={student.id}>
-                          <TableCell className="font-medium sticky left-0 bg-background z-10">
-                            {student.name}
-                          </TableCell>
-                          <TableCell>{student.standard}</TableCell>
-                          <TableCell>{student.board}</TableCell>
-
-                          {bulkSubjectCols.map((col) => {
-                            const marksVal = getBulkMark(student.id, col.id);
-                            const marksNum = Number(marksVal);
-                            const exceedsTotal = sharedTotalNum !== null && marksVal !== "" && !Number.isNaN(marksNum) && marksNum > sharedTotalNum;
-
-                            return (
-                              <TableCell key={col.id}>
-                                <div className="flex flex-col gap-0.5">
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    placeholder="—"
-                                    value={marksVal}
-                                    onChange={(e) => setBulkMark(student.id, col.id, e.target.value)}
-                                    className={`h-8 w-28 rounded-full text-sm ${exceedsTotal ? "border-red-400 focus-visible:ring-red-400" : ""}`}
-                                  />
-                                  {exceedsTotal && (
-                                    <span className="text-[10px] text-red-500 font-medium pl-2">⚠ over {sharedTotalNum}</span>
-                                  )}
-                                </div>
-                              </TableCell>
-                            );
-                          })}
-
-                          {sharedTotalNum !== null && (
-                            <TableCell>
-                              {avgPct === null ? (
-                                <span className="text-xs text-muted-foreground">—</span>
-                              ) : (
-                                <span className={`text-xs font-semibold ${avgPct >= 75 ? "text-emerald-600" : avgPct >= 50 ? "text-amber-600" : "text-red-500"}`}>
-                                  {avgPct.toFixed(0)}%
-                                </span>
-                              )}
-                            </TableCell>
-                          )}
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-
-            {/* Progress bar */}
-            {bulkProgress && (
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Saving…</span><span>{bulkProgress.done} / {bulkProgress.total}</span>
-                </div>
-                <div className="h-2 rounded-full bg-muted overflow-hidden">
-                  <div className="h-full bg-amber-400 transition-all duration-300" style={{ width: `${(bulkProgress.done / bulkProgress.total) * 100}%` }} />
-                </div>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter className="pt-2">
-            <Button variant="outline" onClick={() => setBulkOpen(false)} disabled={bulkSaving}>Cancel</Button>
-            <Button className="bg-amber-500 hover:bg-amber-600 text-white" onClick={saveBulkMarks} disabled={bulkSaving}>
-              {bulkSaving ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving…</>
-              ) : (
-                <><ClipboardList className="h-4 w-4 mr-2" />
-                  Save {totalFilledMarks > 0 ? `${totalFilledMarks} Mark${totalFilledMarks !== 1 ? "s" : ""}` : "Marks"}
-                </>
-              )}
-            </Button>
-          </DialogFooter>
+            <DialogFooter className="pt-2">
+              <Button variant="outline" onClick={() => setBulkOpen(false)} disabled={bulkSaving}>Cancel</Button>
+              <Button className="bg-amber-500 hover:bg-amber-600 text-white" onClick={saveBulkMarks} disabled={bulkSaving}>
+                {bulkSaving ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving…</>
+                ) : (
+                  <><ClipboardList className="h-4 w-4 mr-2" />
+                    Save {totalFilledMarks > 0 ? `${totalFilledMarks} Mark${totalFilledMarks !== 1 ? "s" : ""}` : "Marks"}
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
         </DialogContent>
       </Dialog>
     </section>
