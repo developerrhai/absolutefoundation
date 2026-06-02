@@ -184,28 +184,16 @@ import { PerformanceFilters, type PerformanceFiltersValue } from "./performance-
   //     };
   //   }
   // }
-
-interface SendReportPayload {
-  phone: string;
-  studentName: string;
-  className: string;
-  examination: string;
-  examDate: string;
-  marks: number;
-  totalMarks: number;
-  performance: string;
-}
-
-async function sendWhatsAppViaAPI({
-  phone,
-  studentName,
-  className,
-  examination,
-  examDate,
-  marks,
-  totalMarks,
-  performance
-}: SendReportPayload): Promise<{ success: boolean; message: string }> {
+async function sendWhatsAppViaAPI(
+  phone: string,
+  studentName: string,
+  className: string,
+  examination: string,
+  examDate: string,
+  marks: number,
+  totalMarks: number,
+  performance: string
+): Promise<{ success: boolean; message: string }> {
   try {
     let cleanedPhone = String(phone || "").replace(/\D/g, "");
     if (cleanedPhone.length === 10) cleanedPhone = `91${cleanedPhone}`;
@@ -221,14 +209,14 @@ async function sendWhatsAppViaAPI({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          phone: cleanedPhone,
-          studentName,
-          className,
-          examination,
-          examDate,
-          marks,
-          totalMarks,
-          performance,
+          phone:       cleanedPhone,
+          studentName: studentName,
+          className:   className,
+          examination: examination,
+          examDate:    examDate,
+          marks:       marks,
+          totalMarks:  totalMarks,
+          performance: performance,
         }),
       }
     );
@@ -239,7 +227,7 @@ async function sendWhatsAppViaAPI({
     return {
       success:
         json.success === true ||
-        json.status === true ||
+        json.status  === true ||
         json.message?.toLowerCase().includes("sent"),
       message: json.message || "Message processed",
     };
