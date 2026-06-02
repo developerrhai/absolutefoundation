@@ -49,7 +49,7 @@ import {
   DialogFooter,
 } from "@/components/teacher/ui/dialog";
 import { Label } from "@/components/teacher/ui/label";
-import { studentsApi, studentsUniversalApi, teacherStudentAssessmentsApi } from "@/lib/api";
+import { studentsApi, studentsUniversalApi, teacherStudentAssessmentsApi, studentAttendanceApi } from "@/lib/api";
 
 type Student = {
   id: number;
