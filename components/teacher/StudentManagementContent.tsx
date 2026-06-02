@@ -776,9 +776,10 @@ export default function StudentManagementContent() {
       try {
         // Save attendance record (0%)
         await studentAttendanceApi.createByStudent(student.id, {
-          date: bulkCommon.exam_date,
-          status: "absent",
+          period_label: bulkCommon.examination,
+          record_date: bulkCommon.exam_date,
           attendance_percentage: 0,
+          notes: "Absent – marked via Bulk Marks",
         });
 
         // Save assessment with marks=0 for first subject column
